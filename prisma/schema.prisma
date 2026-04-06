@@ -1,0 +1,204 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// model utilisateur {
+//   id        Int      @id @default(autoincrement())
+//   email     String   @unique
+//   password  String
+//   nom       String
+//   prenom    String
+//   role      Role?    @default(PORT)
+//   region    String
+//   telephone String
+//   createdAt DateTime @default(now())
+//   projet    projet[]
+// }
+model Utilisateur {
+  id                      String                @id @default(cuid())
+  email                   String                @unique
+  password            String
+  nom                     String
+  prenom                  String
+  role                    RoleUtilisateur
+  type_investisseur       TypeInvestisseur? // Rempli si role = INVESTISSEUR
+  bio                     String?
+  telephone               String?
+  ville                   String?
+  region                  String?
+  expertise               String[]
+  url_avatar              String?
+  ceateAt                DateTime              @default(now())
+  updateAt               DateTime              @updatedAt
+
+  projets                 Projet[]              @relation("ProprietaireProjet")
+  mentorats               ProjetMentor[]
+  profil                  Profil   @relation()
+  // membres_equipe          MembreEquipe[]
+  // evaluations             Evaluation[]
+  // tokens_refresh          TokenRefresh[]
+  // offres_financement      OffreFinancement[]
+
+  @@map("utilisateurs")
+}
+
+
+model Profil {
+  id  String   @id @default(cuid())
+  mentor_id  String 
+
+}
+
+
+model Projet {
+  id            Int          @id @default(autoincrement())
+  titre         String
+  problematique String
+  description   String
+  secteur       String
+  contexte      String
+  objectifs     String
+  utilisateur   Utilisateur  @relation(fields: [utilisateurId], references: [id])
+  utilisateurId Int
+  evaluation    Evaluation[]
+}
+
+model ProjetMentor {
+  id          String      @id @default(cuid())
+  projet_id   String
+  mentor_id   String
+  assigne_le  DateTime    @default(now())
+  est_actif   Boolean     @default(true)
+  note_privee String?
+
+  projet      Projet      @relation(fields: [projet_id], references: [id])
+  mentor      Utilisateur @relation(fields: [mentor_id], references: [id])
+
+  @@unique([projet_id, mentor_id])
+  @@map("projets_mentors")
+}
+
+model Stade {
+  id            String      @id @default(cuid())
+  projet_id     String
+  type          TypeStade
+  statut        StatutStade @default(VERROUILLE)
+  donnees       Json        @default("{}")
+  // Stocke DonneesStadeN + métriques calculées
+  // Ex S1 : { ...DonneesStade1, population_reference: 12000, score_solidite: 65 }
+  // Ex S3 : { ...DonneesStade3, population_libre: 8000, score_marche: 72, niveau_realisme: 'REALISTE' }
+  // Ex S5 : { ...DonneesStade5, point_mort_unites: 1200, autonomie_mois: 8 }
+  version       Int         @default(1)
+  historique    Json[]      @default([])
+  score_auto    Float?
+  commence_le   DateTime?
+  soumis_le     DateTime?
+  valide_le     DateTime?
+  mis_a_jour_le DateTime    @updatedAt
+
+  projet        Projet      @relation(fields: [projet_id], references: [id])
+  evaluations   Evaluation[]
+  documents     Document[]
+
+  @@unique([projet_id, type])
+  @@map("stades")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  stade_id      String
+  nom           String
+  url           String
+  type_fichier  String   // 'PDF' | 'IMAGE' | 'VIDEO' | 'LIEN'
+  description   String?
+  type_preuve   String?
+  // S1 : 'PHOTO_TERRAIN' | 'NOTE_ENTRETIEN' | 'CAPTURE_CONVERSATION'
+  // S3 : 'QUESTIONNAIRE' | 'SOURCE_MARCHE'
+  // S5 : 'CV_LINKEDIN' | 'DEVIS_FOURNISSEUR'
+  // S6 : 'PHOTO_MVP' | 'VIDEO_MVP' | 'CAPTURE_RETOUR_CLIENT'
+  // S7 : 'PITCH_DECK' | 'LETTRE_INTERET'
+  taille Int?
+  est_preuve    Boolean  @default(true)
+  uploade_le    DateTime @default(now())
+
+  stade         Stade    @relation(fields: [stade_id], references: [id])
+
+  @@map("documents")
+}
+
+model Evaluation {
+  id            String       @id @default(cuid())
+  stade_id      String
+  mentor_id     String
+  note          Float        // 0-100
+  commentaire   String
+  criteres      Json         // { clarte_probleme: 80, validation_terrain: 70, ... }
+  decision      TypeDecision
+  motif_renvoi  String?      // Obligatoire si RENVOYE
+  createAt       DateTime     @default(now())
+  updateAt DateTime     @updatedAt
+
+  stade         Stade        @relation(fields: [stade_id], references: [id])
+  mentor        Utilisateur  @relation(fields: [mentor_id], references: [id])
+
+  @@map("evaluations")
+}
+
+
+
+
+enum Role {
+  PORT   @map("port")
+  INV    @map("inv")
+  MENTOR @map("mentor")
+  ADMIN  @map("admin")
+}
+
+enum RoleUtilisateur {
+  ENTREPRENEUR
+  MENTOR
+  INVESTISSEUR
+  ADMIN
+}
+
+enum TypeInvestisseur {
+  ANGEL
+  BANQUE
+  ONG
+  FONDS_IMPACT
+  INCUBATEUR
+  ETAT
+  AUTRE
+}
+
+enum TypeStade {
+  STADE_1_EMERGENCE
+  STADE_2_IDEATION
+  STADE_3_MARCHE
+  STADE_4_BMC
+  STADE_5_FAISABILITE
+  STADE_6_PROTOTYPE
+  STADE_7_LANCEMENT
+}
+
+enum TypeDecision {
+  VALIDE
+  RENVOYE
+  REJETE
+}
+
+enum StatutStade {
+  VERROUILLE
+  DEBLOQUE
+  BROUILLON
+  SOUMIS
+  EN_REVISION
+  VALIDE
+}
