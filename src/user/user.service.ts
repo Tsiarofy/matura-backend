@@ -35,7 +35,7 @@ export class UserService {
       }
 
    }
-   async updateUser(id: number, data:UpdateDto) {
+   async updateUser(id: string, data:UpdateDto) {
       try {
          const updated = await this.prisma.utilisateur.update({
             where: { id: id },
@@ -49,7 +49,7 @@ export class UserService {
          throw error
       }
    }
-   async deleteUser(id: number) {
+   async deleteUser(id:string) {
       try {
          const deleted = await this.prisma.utilisateur.delete({
             where: { id: id }

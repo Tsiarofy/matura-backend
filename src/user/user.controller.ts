@@ -22,12 +22,12 @@ export class UserController {
         return typeof (user)
     }
     @Patch("/update/:id")
-    updateUser(@Param('id', ParseIntPipe) id: number, @Body() data: UpdateDto) {
+    updateUser(@Param('id', ParseIntPipe) id:string, @Body() data: UpdateDto) {
 
         return this.userService.updateUser(id, data)
     }
     @Patch("delete/:id")
-    deleteUser(@Param('id', ParseIntPipe) id: number) {
+    deleteUser(@Param('id', ParseIntPipe) id:string) {
         return this.userService.deleteUser(id)
     }
     
