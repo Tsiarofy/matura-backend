@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import {ClientRole  } from './roles.enum';
+import {RoleUtilisateur} from "@matura/shared"
 import { ROLES_KEY } from './roles.decorator';
 
 @Injectable()
@@ -9,7 +9,7 @@ export class RolesGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     // 1. Récupérer les rôles définis sur la route via le décorateur @Roles
-    const requiredRoles = this.reflector.getAllAndOverride<ClientRole []>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<RoleUtilisateur []>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);

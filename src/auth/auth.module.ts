@@ -4,15 +4,19 @@ import { AuthService } from './auth.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import {JwtModule} from "@nestjs/jwt"
 import { JwtStrategy } from './jwt.strategy';
+import { JwtRefreshStrategy } from './jwt-refresh.strategy';
+import { PassportModule } from '@nestjs/passport';
 
 
 @Module({
-  imports:[PrismaModule,JwtModule.register({
-      global: true, // Le rend disponible partout comme PrismaModule
-      secret: process.env.SECRET_KEY, // On utilise ta variable du .env
-      signOptions: { expiresIn: '1d' }, // Optionnel : durée du token
-    })],
+  imports:[PrismaModule,PassportModule,JwtModule.registerAsync({
+  global: true,
+  useFactory: async () => ({
+    secret: process.env.JWT_ACCESS_SECRET,
+    signOptions: { expiresIn: '15m' },
+  }),
+}),],
   controllers: [AuthController],
-  providers: [AuthService,JwtStrategy]
+  providers: [AuthService,JwtStrategy, JwtRefreshStrategy]
 })
 export class AuthModule {}

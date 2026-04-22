@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 // ─── ENUMS ──────────────────────────────────────────────────────
@@ -126,8 +126,8 @@ model Utilisateur {
   profil        Json?
   // Structure du profil selon le rôle — voir section Profil ci-dessous
   url_avatar    String?
-  createAt      DateTime        @default(now())
-  updateAt      DateTime        @updatedAt
+  cree_le       DateTime        @default(now())
+  maj_le        DateTime        @updatedAt
 
   projets_possedes        Projet[]                @relation("ProprietaireProjet")
   projets_suivis          Projet[]                @relation("MentorProjet")
@@ -185,7 +185,7 @@ model TokenRefresh {
   utilisateur_id String
   expire_le      DateTime
   invalide       Boolean  @default(false)
-  createAt       DateTime @default(now())
+  cree_le        DateTime @default(now())
 
   utilisateur Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
 
@@ -208,8 +208,8 @@ model Projet {
   // 1-7 = numéro du dernier stade VALIDE
   est_public  Boolean      @default(false)
   // true = visible aux investisseurs (déclenché quand BRL >= 6 + score >= 65)
-  createAt    DateTime     @default(now())
-  updateAt    DateTime     @updatedAt
+  cree_le     DateTime     @default(now())
+  maj_le      DateTime     @updatedAt
 
   // Relations
   proprietaire_id String
@@ -251,7 +251,7 @@ model Stade {
   commence_le DateTime?
   soumis_le   DateTime?
   valide_le   DateTime?
-  updateAt    DateTime    @updatedAt
+  maj_le      DateTime    @updatedAt
 
   projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
   evaluations Evaluation[]
@@ -321,8 +321,8 @@ model Evaluation {
   // Critères spécifiques selon TypeStade (voir MCDA section)
   decision     TypeDecision
   motif_renvoi String? // Obligatoire si decision = RENVOYE
-  createAt     DateTime     @default(now())
-  updateAt     DateTime     @updatedAt
+  cree_le      DateTime     @default(now())
+  maj_le       DateTime     @updatedAt
 
   stade  Stade       @relation(fields: [stade_id], references: [id])
   mentor Utilisateur @relation(fields: [mentor_id], references: [id])
@@ -381,8 +381,8 @@ model FinancesProjet {
   roi                Float?
   autonomie_mois     Float?
 
-  updateAt DateTime @updatedAt
-  projet   Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  maj_le DateTime @updatedAt
+  projet Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
 
   @@map("finances_projets")
 }
@@ -399,7 +399,7 @@ model AlerteProjet {
   niveau     String // 'CRITIQUE' | 'ATTENTION' | 'INFO'
   message    String
   resolue    Boolean   @default(false)
-  createAt   DateTime  @default(now())
+  cree_le    DateTime  @default(now())
 
   projet Projet @relation(fields: [projet_id], references: [id], onDelete: Cascade)
 
@@ -422,8 +422,8 @@ model OffreFinancement {
   date_limite      DateTime?
   est_actif        Boolean              @default(true)
   // false avant approbation admin + après date_limite
-  createAt         DateTime             @default(now())
-  updateAt         DateTime             @updatedAt
+  cree_le          DateTime             @default(now())
+  maj_le           DateTime             @updatedAt
 
   investisseur Utilisateur   @relation(fields: [investisseur_id], references: [id])
   candidatures Candidature[]
@@ -440,8 +440,8 @@ model Candidature {
   message       String?
   statut        StatutCandidature @default(EN_ATTENTE)
   brl_au_moment Int // BRL du projet au moment de la candidature
-  createAt      DateTime          @default(now())
-  updateAt      DateTime          @updatedAt
+  cree_le       DateTime          @default(now())
+  maj_le        DateTime          @updatedAt
 
   projet Projet           @relation(fields: [projet_id], references: [id])
   offre  OffreFinancement @relation(fields: [offre_id], references: [id])
@@ -459,8 +459,8 @@ model DemandeAccompagnement {
   message   String?
   statut    String   @default("EN_ATTENTE")
   // 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE'
-  createAt  DateTime @default(now())
-  updateAt  DateTime @updatedAt
+  cree_le   DateTime @default(now())
+  maj_le    DateTime @updatedAt
 
   projet Projet      @relation(fields: [projet_id], references: [id])
   mentor Utilisateur @relation(fields: [mentor_id], references: [id])
@@ -483,12 +483,12 @@ model DonneesGeographiques {
   code_fokontany  String @unique
   nom_fokontany   String
   population_2018 Int
-  projection_2025 Int
-  niveau          String // 'REGION' | 'DISTRICT' | 'COMMUNE' | 'FOKONTANY'
+  projection_2026 Int
+  // niveau          String // 'REGION' | 'DISTRICT' | 'COMMUNE' | 'FOKONTANY'
 
   @@index([code_region])
   @@index([code_district])
   @@index([code_commune])
-  @@index([niveau])
+  // @@index([niveau])
   @@map("donnees_geographiques")
 }

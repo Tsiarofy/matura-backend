@@ -1,92 +1,361 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ProjetDto, UpdateDto } from './projet.dto';
-import { AuthDto, SessionDto } from 'src/auth/dto/auth.dto';
-import { error } from 'console';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreationProjetDto, ProjetResume, ProjetDetail,TypeCible } from '@matura/shared'
+import { Prisma, StatutProjet, StatutStade, TypeStade } from '@prisma/client'
+import { log } from 'console'
 
 @Injectable()
 export class ProjetService {
-    constructor(private  prisma:PrismaService){}
-    
-    async getAllProjet(){
-      try {
-        return this.prisma.projet.findMany()
-      } catch (error) {
-        throw new Error("Erreur lors de la recuperation des projets")
-      }
-    }
-   
-   async getProjectByuser(userId:number){
-         try {
-             const projects=await this.prisma.projet.findMany({
-              where:{
-                utilisateurId:userId
-              }
-             })
-             if(projects.length!=0){
-               return projects 
-             }else{
-              return [];
-             }
-         } catch (error) {
-             throw new Error("Une erreur est survenus lors de la recuperations de vos projets");
-         }
-   }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async addProject(dto:ProjetDto,userId:number) {
-          // console.log("DANS LE SERVICE POUR CREER LE PROJET")
-          try {
-          // console.log("DANS LE TRY SERVICE POUR CREER LE PROJET")
-          console.log("- - - userId - - -")
-          console.log(userId)
-            const createdProject=await this.prisma.projet.create({
-                data:{...dto,utilisateurId:userId}
-            })
-            console.log(createdProject)
-            return true
-          } catch (error) {
-          console.log(error)
-            return new Error("Une erreur est survenu lors de l'enregistrement du projet")
+  /**
+   * Crée un nouveau projet avec initialisation automatique :
+   * - 7 stades (STADE_1 = DEBLOQUE, autres = VERROUILLE)
+   * - ScoreProjet (tous scores à 0)
+   * - FinancesProjet (vide)
+   * - brl_actuel = 0
+   * - statut = BROUILLON
+   */
+  async creerProjet(
+    dto: CreationProjetDto,
+    proprietaireId: string,
+  ): Promise<ProjetDetail|any> {
+    // Créer le projet avec les 7 stades et le score en une seule transaction
+      // console.log("#######################################################")
+      // console.log(proprietaireId);  
+    const projet = await this.prisma.$transaction(async (tx) => {
+      // 1. Créer le projet
+
+      const nouveauProjet = await tx.projet.create({
+        data: {
+          titre: dto.titre,
+          description: dto.description,
+          domaine: dto.domaine,
+          secteur: dto.secteur,
+          region: dto.region,
+          type_cible: dto.type_cible,
+          statut: StatutProjet.BROUILLON,
+          brl_actuel: 0,
+          est_public: false,
+          proprietaire_id: proprietaireId,
+        },
+      })
+
+      // 2. Initialiser les 7 stades
+      const stadesData: Prisma.StadeCreateManyInput[] = [
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_1_EMERGENCE,
+          statut: StatutStade.DEBLOQUE, // Stade 1 débloqué d'office
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_2_IDEATION,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_3_MARCHE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_4_BMC,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_5_FAISABILITE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_6_PROTOTYPE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_7_LANCEMENT,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+      ]
+
+      await tx.stade.createMany({ data: stadesData })
+
+      // 3. Initialiser le score MCDA (tous à 0)
+      await tx.scoreProjet.create({
+        data: {
+          projet_id: nouveauProjet.id,
+          score_stade_1: 0,
+          score_stade_2: 0,
+          score_stade_3: 0,
+          score_stade_4: 0,
+          score_stade_5: 0,
+          score_stade_6: 0,
+          score_stade_7: 0,
+          score_global: 0,
+          score_innovation: 0,
+          score_marche: 0,
+          score_equipe: 0,
+          score_finance: 0,
+          score_execution: 0,
+        },
+      })
+
+      return nouveauProjet
+    })
+
+    // 4. Retourner le projet complet avec les stades
+    return this.getProjetDetail(projet.id, proprietaireId)
+  }
+
+  /**
+   * Liste les projets de l'entrepreneur connecté
+   * Avec pagination et filtres optionnels
+   */
+  async getMesProjets(
+    proprietaireId: string,
+    filters?: {
+      statut?: StatutProjet
+      page?: number
+      limite?: number
+    },
+  ): Promise<{
+    projets: ProjetResume[]
+    total: number
+    page: number
+    pages: number
+  }> {
+    const page = filters?.page || 1
+    const limite = Math.min(filters?.limite || 20, 100)
+    const skip = (page - 1) * limite
+
+    const where: Prisma.ProjetWhereInput = {
+      proprietaire_id: proprietaireId,
+      ...(filters?.statut && { statut: filters.statut }),
+    }
+
+    const [projets, total] = await Promise.all([
+      this.prisma.projet.findMany({
+        where,
+        skip,
+        take: limite,
+        orderBy: { maj_le: 'desc' },
+        include: {
+          mentor: {
+            select: { id: true, prenom: true, nom: true },
+          },
+          stades: {
+            select: {
+              type: true,
+              statut: true,
+              score_auto: true,
+            },
+          },
+          score: {
+            select: { score_global: true },
+          },
+        },
+      }),
+      this.prisma.projet.count({ where }),
+    ])
+
+    // Mapper vers ProjetResume
+    const projetsResume: ProjetResume[] = projets.map((p) => {
+      // Trouver le stade actif (le premier non VERROUILLE en ordre)
+      const stadeActif = p.stades.find(
+        (s) => s.statut !== StatutStade.VERROUILLE,
+      )
+
+      // Calculer numero et completion_pct du stade actif
+      let stadeActifData: any = null
+      if (stadeActif) {
+        const numero = this.getNumeroFromType(stadeActif.type)
+        const completion_pct = this.calculerCompletionStade(stadeActif)
+
+        stadeActifData = {
+          type: stadeActif.type,
+          numero,
+          statut: stadeActif.statut,
+          completion_pct,
+        }
+      }
+
+      return {
+        id: p.id,
+        titre: p.titre,
+        domaine: p.domaine,
+        secteur: p.secteur,
+        region: p.region,
+        type_cible: p.type_cible as TypeCible,
+        statut: p.statut,
+        brl_actuel: p.brl_actuel,
+        est_public: p.est_public,
+        cree_le: p.cree_le.toISOString(),
+        maj_le: p.maj_le.toISOString(),
+        stade_actif: stadeActifData,
+        mentor: p.mentor
+          ? {
+              id: p.mentor.id,
+              prenom: p.mentor.prenom,
+              nom: p.mentor.nom,
+            }
+          : null,
+        score_global: p.score?.score_global ?? null,
+      }
+    })
+
+    return {
+      projets: projetsResume,
+      total,
+      page,
+      pages: Math.ceil(total / limite),
+    }
+  }
+
+  /**
+   * Récupère le détail complet d'un projet
+   * Accessible par : propriétaire, mentor assigné, admin
+   */
+  async getProjetDetail(
+    projetId: string,
+    userId: string,
+    userRole?: string,
+  ): Promise<ProjetDetail> {
+    const projet = await this.prisma.projet.findUnique({
+      where: { id: projetId },
+      include: {
+        proprietaire: {
+          select: { id: true, prenom: true, nom: true },
+        },
+        mentor: {
+          select: { id: true, prenom: true, nom: true },
+        },
+        stades: {
+          select: {
+            id: true,
+            type: true,
+            statut: true,
+            score_auto: true,
+            commence_le: true,
+            soumis_le: true,
+            valide_le: true,
+          },
+          orderBy: { type: 'asc' },
+        },
+        score: true, // On récupère tout l'objet score
+      },
+    })
+
+    if (!projet) {
+      throw new NotFoundException('Projet introuvable')
+    }
+
+    // Vérifier les droits d'accès
+    const isProprietaire = projet.proprietaire_id === userId
+    const isMentor = projet.mentor_id === userId
+    const isAdmin = userRole === 'ADMIN'
+
+    if (!isProprietaire && !isMentor && !isAdmin) {
+      throw new ForbiddenException('Accès refusé à ce projet')
+    }
+
+    // Mapper vers ProjetDetail
+    const stadeActif = projet.stades.find(
+      (s) => s.statut !== StatutStade.VERROUILLE,
+    )
+
+    return {
+      id: projet.id,
+      titre: projet.titre,
+      description: projet.description,
+      domaine: projet.domaine,
+      secteur: projet.secteur,
+      region: projet.region,
+      type_cible: projet.type_cible as TypeCible,
+      statut: projet.statut,
+      brl_actuel: projet.brl_actuel,
+      est_public: projet.est_public,
+      cree_le: projet.cree_le.toISOString(),
+      maj_le: projet.maj_le.toISOString(),
+      stade_actif: stadeActif
+        ? {
+            type: stadeActif.type,
+            numero: this.getNumeroFromType(stadeActif.type),
+            statut: stadeActif.statut,
+            completion_pct: 0, // Calculé plus tard selon les données
           }
+        : null,
+      proprietaire: {
+        id: projet.proprietaire.id,
+        prenom: projet.proprietaire.prenom,
+        nom: projet.proprietaire.nom,
+      },
+      mentor: projet.mentor
+        ? {
+            id: projet.mentor.id,
+            prenom: projet.mentor.prenom,
+            nom: projet.mentor.nom,
+          }
+        : null,
+      stades: projet.stades.map((s) => ({
+        id: s.id,
+        type: s.type,
+        numero: this.getNumeroFromType(s.type),
+        statut: s.statut,
+        score_auto: s.score_auto,
+        completion_pct: 0, // Calculé plus tard
+        commence_le: s.commence_le?.toISOString() || null,
+        soumis_le: s.soumis_le?.toISOString() || null,
+        valide_le: s.valide_le?.toISOString() || null,
+      })),
+      score_global: projet.score?.score_global ?? null,
+      score: projet.score
+        ? {
+            score_global: projet.score.score_global,
+            score_innovation: projet.score.score_innovation,
+            score_marche: projet.score.score_marche,
+            score_equipe: projet.score.score_equipe,
+            score_finance: projet.score.score_finance,
+            score_execution: projet.score.score_execution,
+          }
+        : null,
     }
-    
-    async updateProjet(id:number,dto:UpdateDto){
-      try {
-        const projet=await this.prisma.projet.findUnique({
-          where:{id:id}
-        })
-        if(!projet){
-          throw new Error("Projet introuvable");
-        }
-        await this.prisma.projet.update({
-          where:{id:id},
-          data:dto
-        })
-        return true;
-      } catch (error) {
-        console.error(error)
-        throw new Error("Une erreur est survenu lors de la modification du projet")
-      }
-    }
+  }
 
-    async deleteProjet(id:number,userId:number){
-      try {
-        const projet=await this.prisma.projet.findUnique({
-          where:{id:id}
-        })
-
-        if(!projet){
-          throw new Error("Projet introuvable");
-        }
-        else if(projet.utilisateurId!==userId){
-          throw new error("Ne peux pas effacer un ptojet qui ne vous appartient pas")
-        }
-        await this.prisma.projet.delete({
-          where:{id:id}
-        })
-        return `Projet avec l'id ${id} effacé avec succès`;
-      } catch (error) {
-        throw new NotFoundException("Une erreur est survenu lors de la suppression du projet")
-      }
+  /**
+   * Helpers privés
+   */
+  private getNumeroFromType(type: TypeStade): number {
+    const mapping: Record<TypeStade, number> = {
+      STADE_1_EMERGENCE: 1,
+      STADE_2_IDEATION: 2,
+      STADE_3_MARCHE: 3,
+      STADE_4_BMC: 4,
+      STADE_5_FAISABILITE: 5,
+      STADE_6_PROTOTYPE: 6,
+      STADE_7_LANCEMENT: 7,
     }
+    return mapping[type] || 0
+  }
+
+  private calculerCompletionStade(stade: any): number {
+    // TODO: Implémenter le calcul réel selon les données du stade
+    // Pour l'instant retourne 0
+    return 0
+  }
 }
