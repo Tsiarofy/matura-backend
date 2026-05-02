@@ -129,6 +129,15 @@ export class AuthService {
     }
   }
 
+ async deconnexion(userId: string) {
+    // Invalidation de tous les tokens de l'utilisateur
+    await this.prisma.tokenRefresh.updateMany({
+      where: { utilisateur_id: userId, invalide: false },
+      data: { invalide: true }
+    });
+    return { message: 'Déconnexion réussie' };
+  }    
+
   /**
    * Enregistre le refresh token hasché en base.
    * On invalide les anciens tokens pour ce même utilisateur par sécurité.

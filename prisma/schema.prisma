@@ -150,6 +150,8 @@ model Utilisateur {
 //   region?: string
 //   bio?: string
 //   secteur_activite?: string
+//   parcours?: string
+//   linkedin_url?: string
 //   type_cible?: 'B2C' | 'B2B' | 'B2B2C'
 // }
 //
@@ -162,7 +164,7 @@ model Utilisateur {
 //   domaines_expertise: string[]      // Agriculture, Tech, Finance, etc.
 //   annees_experience?: number
 //   linkedin_url?: string
-//   disponible: boolean
+//   disponible?: boolean
 // }
 //
 // INVESTISSEUR :
@@ -247,6 +249,11 @@ model Stade {
   // Incrémenté à chaque soumission (pour l'historique)
   historique  Json[]      @default([])
   // Snapshots des versions précédentes
+  calculs_informatifs Json?
+  // Champ contenant les KPIs calculés côté client (TAM, SAM, SOM, ratios)
+  // Structure typée par CalculsInformatifsSchema (@matura/shared)
+  // Rempli par le frontend lors de l'enregistrement du Stade 3
+  // Consommé en lecture par les vues Mentor (IEME) et Investisseur (BRL)
   score_auto  Float?
   commence_le DateTime?
   soumis_le   DateTime?

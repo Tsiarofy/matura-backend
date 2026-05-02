@@ -2,11 +2,12 @@ import { ValidationPipe } from '@nestjs/common';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import  cookieParser from 'cookie-parser';
-// import cooki
+import cookieParser from 'cookie-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableCors({
     // 1. Remplace le '*' par l'URL exacte de ton front (Vite)
     origin: 'http://localhost:5173', 
@@ -26,7 +27,14 @@ async function bootstrap() {
   }));
 
   app.use(cookieParser()); // Middleware pour parser les cookies
+  
+  // Serve static files from the 'uploads' folder
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
+
   app.setGlobalPrefix('api'); // Ajoute un préfixe global pour toutes les routes (ex: /api)
   await app.listen(3000);
 }
 bootstrap();
+

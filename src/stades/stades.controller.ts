@@ -49,6 +49,7 @@ export class StadesController {
     @Req() req: RequestWithUser,
     @Body() body: Record<string, unknown>,
   ) {
+    console.log("CHANDLER ATTEINT")
     return this.stadesService.enregistrerStade(projetId, num, req.user.payload.id, body)
   }
 

@@ -2,33 +2,19 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
     "target": "ES2023",
-    "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      // "@components/*": ["./src/components/*"],
-      // "@schemas/*": ["./src/schemas/*"],
-      // "@lib/*": ["./src/lib/*"],
-      // "@stores/*": ["./src/stores/*"],
-      // "@routes/*": ["./src/routes/*"]
+      "@/*": ["./src/*"]
     },
-    "incremental": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false,
-    // "ignoreDeprecations": "6.0"  
-  }
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts"]
 }

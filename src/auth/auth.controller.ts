@@ -1,6 +1,7 @@
 import { Body, Controller, Post, HttpCode, 
     HttpStatus,  UseGuards,
-    Res,Req} from '@nestjs/common';
+    Res,Req,
+    Delete} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {type InscriptionDto,type ConnexionDto,type AuthResponse} from "@matura/shared"
 import path from 'path';
@@ -18,9 +19,9 @@ export class AuthController {
     
     @Post("connexion")
   async  singin (@Body() dto:ConnexionDto, @Res({passthrough:true}) res:Response):Promise<AuthResponse> {
-    console.log("Avant le requete dans la db")  
+    // console.log("Avant le requete dans la db")  
     const data=await this.authService.connexion(dto)  
-    console.log("Apres le requete dans la db")  
+    // console.log("Apres le requete dans la db")  
     res.cookie('refresh_token', data.refreshToken, {
     httpOnly: true,     // Interdit l'accès via JavaScript (Sécurité !)
     secure: true,       // Nécessite HTTPS (en prod)
@@ -66,5 +67,23 @@ async refresh(
 
   return this.authService.refreshToken(userId, oldRefreshToken);
 }
+
+@Delete("deconnexion")
+@UseGuards(JwtRefreshAuthGuard)
+async logout(
+  @Req() req: Request, 
+  @Res({ passthrough: true }) res: Response
+) {
+  const userId = (req.user as { id: string }).id;
+  await this.authService.deconnexion(userId);
+  
+  // Supprimer le cookie côté client
+  res.clearCookie('refresh_token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+  });
+
+  return { message: 'Déconnexion réussie' };
+}   
 }
-    

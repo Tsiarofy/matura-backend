@@ -21,6 +21,10 @@ export class RolesGuard implements CanActivate {
 
     // 2. Récupérer l'utilisateur depuis la requête (injecté par Passport)
     const { user } = context.switchToHttp().getRequest();
+    // console.log("- - - - - - - -")
+    // console.log(`le role  requise est ${requiredRoles} le role de l'utilisateur :  ${user}`)
+    // console.log(user)
+    // console.log("- - - - - - - -")
     return requiredRoles.some((role) => user.payload?.role?.includes(role));
   }
 }

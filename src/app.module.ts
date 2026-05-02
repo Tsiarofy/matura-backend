@@ -1,17 +1,24 @@
 import { Module } from '@nestjs/common';
-// import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
-// import { ConfigModule } from '@nestjs/config';
-// import { ProjetService } from './projet/projet.service';
-// import { ProjetController } from './projet/projet.controller';
 import { ProjetModule } from './projet/projet.module';
-// import { EvaluationsModule } from './evaluations/evaluations.module';
 import { StadesModule } from './stades/stades.module';
-//UserModule,, ProjetModule, EvaluationsModule
+import { GeoModule } from './geo/geo.module';
+import { AccompagnementModule } from './accompagnement/accompagnement.module';
+import { UtilisateurModule } from './utilisateur/utilisateur.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service'; 
 @Module({
-  controllers: [],
-  providers: [],
-  imports: [PrismaModule,AuthModule,ProjetModule, StadesModule]
+  controllers: [AppController],
+  providers: [AppService],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    ProjetModule,
+    StadesModule,
+    GeoModule,           // Endpoints /api/geo/* + GeoService exporté vers Stade1Engine
+    AccompagnementModule, // Endpoints /mentors, /demandes, /projets/:id/demandes
+    UtilisateurModule,    // Endpoints /utilisateurs/* pour la gestion des profils
+  ],
 })
-export class AppModule { }
+export class AppModule {}
