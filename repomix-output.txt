@@ -1,0 +1,3740 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: src/**/*
+- Files matching these patterns are excluded: package.json, package-lock.json, pnpm-lock.yaml, node_modules/**, dist/**, .git/**, .vscode/**, prisma/**, seeds/**, test/**, uploads/**, *.config.*, tsconfig*.json, .gitignore, .prettierrc, README.md, nest-cli.json, eslint.config.mjs
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+
+================================================================
+Directory Structure
+================================================================
+src/accompagnement/accompagnement.controller.ts
+src/accompagnement/accompagnement.module.ts
+src/accompagnement/accompagnement.service.ts
+src/app.controller.ts
+src/app.module.ts
+src/app.service.ts
+src/auth/auth.controller.ts
+src/auth/auth.module.ts
+src/auth/auth.service.ts
+src/auth/jwt-auth.guard.ts
+src/auth/jwt-refresh.guard.ts
+src/auth/jwt-refresh.strategy.ts
+src/auth/jwt.strategy.ts
+src/auth/roles.decorator.ts
+src/auth/roles.guard.ts
+src/geo/geo.controller.ts
+src/geo/geo.module.ts
+src/geo/geo.service.ts
+src/main.ts
+src/prisma/prisma.module.ts
+src/prisma/prisma.service.ts
+src/projet/data.pipe.ts
+src/projet/projet.controller.ts
+src/projet/projet.module.ts
+src/projet/projet.service.ts
+src/stades/engines/IStadeEngine.ts
+src/stades/engines/stade1.engine.ts
+src/stades/engines/stade2.engine.ts
+src/stades/engines/stade3.engine.ts
+src/stades/engines/stade4.engine.ts
+src/stades/engines/stade5.engine.ts
+src/stades/engines/stade6.engine.ts
+src/stades/engines/stade7.engine.ts
+src/stades/stades.controller.ts
+src/stades/stades.module.ts
+src/stades/stades.service.ts
+src/stades/types/index.ts
+src/utilisateur/logger.interceptor.ts
+src/utilisateur/parse-utilisateur.pipe.ts
+src/utilisateur/utilisateur.controller.ts
+src/utilisateur/utilisateur.module.ts
+src/utilisateur/utilisateur.service.ts
+
+================================================================
+Files
+================================================================
+
+================
+File: src/accompagnement/accompagnement.controller.ts
+================
+// src/accompagnement/accompagnement.controller.ts
+// Adapté depuis new-features/featuresAdimin pour respecter la structure de routes CONCEPTION_FINALE_V4
+
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { RolesGuard } from '../auth/roles.guard'
+import { Roles } from '../auth/roles.decorator'
+import { AccompagnementService } from './accompagnement.service'
+
+interface RequestWithUser extends Request {
+  user: { payload: { id: string; email: string; role: string } }
+}
+
+// ─── ROUTES ENTREPRENEUR : /projets/:projetId/demandes ──────────────────────
+
+@Controller('projets/:projetId/demandes')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class DemandesProjetController {
+  constructor(private readonly svc: AccompagnementService) {}
+
+  // POST /projets/:projetId/demandes — envoyer une demande à un mentor
+  @Post()
+  @Roles('ENTREPRENEUR')
+  @HttpCode(HttpStatus.CREATED)
+  envoyerDemande(
+    @Param('projetId') projetId: string,
+    @Req() req: RequestWithUser,
+    @Body() body: { mentor_id: string; message?: string },
+  ) {
+    return this.svc.envoyerDemande(projetId, req.user.payload.id, body)
+  }
+
+  // GET /projets/:projetId/demandes — consulter mes demandes envoyées
+  @Get()
+  @Roles('ENTREPRENEUR')
+  getMesDemandesEnvoyees(
+    @Param('projetId') projetId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.svc.getMesDemandesEnvoyees(projetId, req.user.payload.id)
+  }
+
+  // DELETE /projets/:projetId/demandes/:demandeId — annuler une demande
+  @Delete(':demandeId')
+  @Roles('ENTREPRENEUR')
+  annuler(
+    @Param('demandeId') demandeId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.svc.annulerDemande(demandeId, req.user.payload.id)
+  }
+}
+
+// ─── ROUTES MENTOR : /demandes ────────────────────────────────────────────────
+
+@Controller('demandes')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class DemandesMentorController {
+  constructor(private readonly svc: AccompagnementService) {}
+
+  // GET /demandes — demandes reçues par le mentor connecté
+  @Get()
+  @Roles('MENTOR')
+  getMesDemandes(
+    @Req() req: RequestWithUser,
+    @Query('statut') statut?: string,
+    @Query('page') page?: string,
+    @Query('limite') limite?: string,
+  ) {
+    return this.svc.getMesDemandes(req.user.payload.id, {
+      statut,
+      page: page ? parseInt(page, 10) : undefined,
+      limite: limite ? parseInt(limite, 10) : undefined,
+    })
+  }
+
+  @Patch(':id')
+  @Roles('MENTOR')
+  repondre(
+    @Param('id') demandeId: string,
+    @Req() req: RequestWithUser,
+    @Body() body: { statut: 'ACCEPTE' | 'REFUSE' },
+  ) {
+    return this.svc.repondreDemande(demandeId, req.user.payload.id, body)
+  }
+}
+
+// ─── ROUTES MENTOR : /projets-suivis ───────────────────────────────────────────
+
+@Controller('projets-suivis')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class ProjetsSuivisController {
+  constructor(private readonly svc: AccompagnementService) {}
+
+  @Get()
+  @Roles('MENTOR')
+  getProjetsSuivis(@Req() req: RequestWithUser) {
+    return this.svc.getProjetsSuivis(req.user.payload.id)
+  }
+}
+
+// ─── ROUTE PUBLIQUE : /mentors ────────────────────────────────────────────────
+// Consultable par les entrepreneurs (sidebar : "Mentors disponibles")
+
+@Controller('mentors')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class MentorsController {
+  constructor(private readonly svc: AccompagnementService) {}
+
+  // GET /mentors — liste des mentors disponibles (APPROUVE)
+  @Get()
+  @Roles('ENTREPRENEUR')
+  getMentorsDisponibles(
+    @Query('page') page?: string,
+    @Query('limite') limite?: string,
+  ) {
+    return this.svc.getMentorsDisponibles({
+      page: page ? parseInt(page, 10) : undefined,
+      limite: limite ? parseInt(limite, 10) : undefined,
+    })
+  }
+}
+
+================
+File: src/accompagnement/accompagnement.module.ts
+================
+// src/accompagnement/accompagnement.module.ts
+import { Module } from '@nestjs/common'
+import {
+  DemandesProjetController,
+  DemandesMentorController,
+  MentorsController,
+  ProjetsSuivisController,
+} from './accompagnement.controller'
+import { AccompagnementService } from './accompagnement.service'
+import { PrismaModule } from '../prisma/prisma.module'
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [
+    DemandesProjetController,
+    DemandesMentorController,
+    MentorsController,
+    ProjetsSuivisController,
+  ],
+  providers: [AccompagnementService],
+  exports: [AccompagnementService],
+})
+export class AccompagnementModule {}
+
+================
+File: src/accompagnement/accompagnement.service.ts
+================
+// src/accompagnement/accompagnement.service.ts
+// Service de gestion des demandes d'accompagnement (mentor ↔ entrepreneur)
+// Adapté depuis new-features/featuresAdimin pour respecter la nouvelle architecture
+
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+
+@Injectable()
+export class AccompagnementService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── ENVOYER UNE DEMANDE (ENTREPRENEUR) ──────────────────────────────────────
+  async envoyerDemande(
+    projetId: string,
+    entrepreneurId: string,
+    dto: { mentor_id: string; message?: string },
+  ) {
+    const projet = await this.prisma.projet.findUnique({ where: { id: projetId } })
+    if (!projet) throw new NotFoundException('PROJET_INTROUVABLE')
+    if (projet.proprietaire_id !== entrepreneurId) throw new ForbiddenException('NON_PROPRIETAIRE')
+
+    // Un seul mentor peut être assigné à la fois
+    if (projet.mentor_id) throw new ConflictException('MENTOR_DEJA_ASSIGNE')
+
+    const mentor = await this.prisma.utilisateur.findUnique({ where: { id: dto.mentor_id } })
+    if (!mentor || mentor.role !== 'MENTOR' || mentor.statut_compte !== 'APPROUVE')
+      throw new NotFoundException('MENTOR_INTROUVABLE_OU_NON_DISPONIBLE')
+
+    // Pas de doublon pour ce couple projet/mentor
+    const existante = await this.prisma.demandeAccompagnement.findUnique({
+      where: { projet_id_mentor_id: { projet_id: projetId, mentor_id: dto.mentor_id } },
+    })
+    if (existante) throw new ConflictException('DEMANDE_DEJA_EXISTANTE')
+
+    const demande = await this.prisma.demandeAccompagnement.create({
+      data: {
+        projet_id: projetId,
+        mentor_id: dto.mentor_id,
+        message: dto.message ?? null,
+        statut: 'EN_ATTENTE',
+      },
+    })
+
+    return {
+      id: demande.id,
+      projet_id: demande.projet_id,
+      mentor_id: demande.mentor_id,
+      statut: demande.statut,
+      cree_le: demande.cree_le.toISOString(),
+    }
+  }
+
+  // ─── DEMANDES REÇUES PAR UN MENTOR ───────────────────────────────────────────
+  async getMesDemandes(
+    mentorId: string,
+    params: { statut?: string; page?: number; limite?: number },
+  ) {
+    const page = params.page ?? 1
+    const limite = Math.min(params.limite ?? 20, 100)
+    const skip = (page - 1) * limite
+
+    const where: Record<string, unknown> = { mentor_id: mentorId }
+    if (params.statut) where.statut = params.statut
+
+    const [demandes, total] = await Promise.all([
+      this.prisma.demandeAccompagnement.findMany({
+        where,
+        skip,
+        take: limite,
+        orderBy: { cree_le: 'desc' },
+        include: {
+          projet: {
+            select: {
+              id: true,
+              titre: true,
+              domaine: true,
+              brl_actuel: true,
+              description: true,
+              proprietaire: { select: { id: true, prenom: true, nom: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.demandeAccompagnement.count({ where }),
+    ])
+
+    return {
+      demandes: demandes.map((d) => ({
+        id: d.id,
+        message: d.message,
+        statut: d.statut,
+        cree_le: d.cree_le.toISOString(),
+        projet: d.projet,
+      })),
+      total,
+      page,
+      pages: Math.ceil(total / limite),
+    }
+  }
+
+  // ─── DEMANDES ENVOYÉES PAR UN ENTREPRENEUR ────────────────────────────────────
+  async getMesDemandesEnvoyees(projetId: string, entrepreneurId: string) {
+    const projet = await this.prisma.projet.findUnique({ where: { id: projetId } })
+    if (!projet) throw new NotFoundException('PROJET_INTROUVABLE')
+    if (projet.proprietaire_id !== entrepreneurId) throw new ForbiddenException('NON_PROPRIETAIRE')
+
+    const demandes = await this.prisma.demandeAccompagnement.findMany({
+      where: { projet_id: projetId },
+      orderBy: { cree_le: 'desc' },
+      include: {
+        mentor: {
+          select: { id: true, prenom: true, nom: true, url_avatar: true, profil: true },
+        },
+      },
+    })
+
+    return demandes.map((d) => ({
+      id: d.id,
+      message: d.message,
+      statut: d.statut,
+      cree_le: d.cree_le.toISOString(),
+      mentor: d.mentor,
+    }))
+  }
+
+  // ─── RÉPONDRE À UNE DEMANDE (MENTOR : ACCEPTE / REFUSE) ──────────────────────
+  async repondreDemande(
+    demandeId: string,
+    mentorId: string,
+    dto: { statut: 'ACCEPTE' | 'REFUSE' },
+  ) {
+    const demande = await this.prisma.demandeAccompagnement.findUnique({
+      where: { id: demandeId },
+      include: { projet: true },
+    })
+
+    if (!demande) throw new NotFoundException('DEMANDE_INTROUVABLE')
+    if (demande.mentor_id !== mentorId) throw new ForbiddenException('NON_AUTORISE')
+    if (demande.statut !== 'EN_ATTENTE')
+      throw new BadRequestException(`DEMANDE_DEJA_TRAITEE: ${demande.statut}`)
+
+    if (dto.statut === 'ACCEPTE') {
+      if (demande.projet.mentor_id) throw new ConflictException('MENTOR_DEJA_ASSIGNE')
+
+      await this.prisma.$transaction(async (tx) => {
+        // Accepter cette demande
+        await tx.demandeAccompagnement.update({
+          where: { id: demandeId },
+          data: { statut: 'ACCEPTE' },
+        })
+        // Assigner le mentor au projet
+        await tx.projet.update({
+          where: { id: demande.projet_id },
+          data: { mentor_id: mentorId },
+        })
+        // Refuser automatiquement les autres demandes EN_ATTENTE pour ce projet
+        await tx.demandeAccompagnement.updateMany({
+          where: {
+            projet_id: demande.projet_id,
+            id: { not: demandeId },
+            statut: 'EN_ATTENTE',
+          },
+          data: { statut: 'REFUSE' },
+        })
+      })
+
+      return {
+        id: demandeId,
+        statut: 'ACCEPTE',
+        message: `Vous suivez maintenant le projet "${demande.projet.titre}".`,
+      }
+    } else {
+      await this.prisma.demandeAccompagnement.update({
+        where: { id: demandeId },
+        data: { statut: 'REFUSE' },
+      })
+      return { id: demandeId, statut: 'REFUSE', message: 'Demande refusée.' }
+    }
+  }
+
+  // ─── ANNULER UNE DEMANDE (ENTREPRENEUR) ──────────────────────────────────────
+  async annulerDemande(demandeId: string, entrepreneurId: string) {
+    const demande = await this.prisma.demandeAccompagnement.findUnique({
+      where: { id: demandeId },
+      include: { projet: true },
+    })
+    if (!demande) throw new NotFoundException('DEMANDE_INTROUVABLE')
+    if (demande.projet.proprietaire_id !== entrepreneurId) throw new ForbiddenException('NON_AUTORISE')
+    if (demande.statut !== 'EN_ATTENTE') throw new BadRequestException('DEMANDE_DEJA_TRAITEE')
+
+    await this.prisma.demandeAccompagnement.delete({ where: { id: demandeId } })
+    return { message: 'Demande annulée.' }
+  }
+
+  // ─── LISTE DES MENTORS DISPONIBLES (ENTREPRENEUR) ────────────────────────────
+  async getMentorsDisponibles(params: { page?: number; limite?: number } = {}) {
+    const page = params.page ?? 1
+    const limite = Math.min(params.limite ?? 20, 100)
+    const skip = (page - 1) * limite
+
+    const [mentors, total] = await Promise.all([
+      this.prisma.utilisateur.findMany({
+        where: { role: 'MENTOR', statut_compte: 'APPROUVE' },
+        select: {
+          id: true,
+          prenom: true,
+          nom: true,
+          url_avatar: true,
+          profil: true,
+        },
+        skip,
+        take: limite,
+        orderBy: { nom: 'asc' },
+      }),
+      this.prisma.utilisateur.count({
+        where: { role: 'MENTOR', statut_compte: 'APPROUVE' },
+      }),
+    ])
+
+    return {
+      mentors,
+      total,
+      page,
+      pages: Math.ceil(total / limite),
+    }
+  }
+
+  // ─── PROJETS SUIVIS (MENTOR) ────────────────────────────────────────────────
+  async getProjetsSuivis(mentorId: string) {
+    const projets = await this.prisma.projet.findMany({
+      where: { mentor_id: mentorId },
+      include: {
+        proprietaire: { select: { id: true, prenom: true, nom: true } },
+        stades: true,
+        score: true,
+      },
+      orderBy: { maj_le: 'desc' },
+    })
+
+    const getNum = (type: string) => {
+      const match = type.match(/STADE_(\d+)/)
+      return match ? parseInt(match[1], 10) : 0
+    }
+
+    return projets.map((p) => {
+      // Le stade actif est soit celui en cours (SOUMIS, BROUILLON, EN_REVISION),
+      // soit le dernier stade validé.
+      const stade_actif = p.stades.find(
+        (s) => ['SOUMIS', 'BROUILLON', 'EN_REVISION'].includes(s.statut)
+      ) ?? p.stades.find(
+        (s) => s.statut === 'VALIDE' && getNum(s.type) === p.brl_actuel
+      ) ?? p.stades[p.stades.length - 1] // Fallback
+
+      return {
+        id: p.id,
+        titre: p.titre,
+        domaine: p.domaine,
+        region: p.region,
+        statut: p.statut,
+        brl_actuel: p.brl_actuel,
+        score_global: p.score?.score_global ?? null,
+        cree_le: p.cree_le.toISOString(),
+        maj_le: p.maj_le.toISOString(),
+        proprietaire: p.proprietaire,
+        stade_actif: stade_actif ? {
+          type: stade_actif.type,
+          numero: getNum(stade_actif.type),
+          statut: stade_actif.statut,
+          en_attente_evaluation: stade_actif.statut === 'SOUMIS',
+        } : null,
+      }
+    })
+  }
+}
+
+================
+File: src/app.service.ts
+================
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppService {
+  getHello(): string {
+    return 'Hello World!';
+  }
+}
+
+================
+File: src/auth/jwt-auth.guard.ts
+================
+import { Injectable } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {}
+
+================
+File: src/auth/jwt-refresh.guard.ts
+================
+import { Injectable } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {}
+
+================
+File: src/auth/jwt-refresh.strategy.ts
+================
+import { ExtractJwt, Strategy,StrategyOptions } from 'passport-jwt';
+import { PassportStrategy } from '@nestjs/passport';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {PayloadDto} from '@matura/shared'
+import {type Request } from 'express';
+import * as bcrypt from "bcrypt"
+import {PrismaService} from "@/prisma/prisma.service"
+
+@Injectable()
+export class JwtRefreshStrategy extends PassportStrategy(Strategy,"jwt-refresh") {
+  constructor(private readonly prisma:PrismaService) {
+    super({
+      jwtFromRequest: ExtractFromRequest,
+      ignoreExpiration: false,
+      secretOrKey:process.env.JWT_REFRESH_SECRET as string,
+      passReqToCallback: true,
+    });
+  }
+
+async validate(req: Request, payload: PayloadDto) {
+  const refreshToken = req.cookies?.refresh_token; // Récupération brute
+  const userId = payload.id;
+
+  // 1. Chercher en base avec Prisma
+  const userToken = await this.prisma.tokenRefresh.findFirst({
+    where: { utilisateur_id: userId, invalide: false }
+  });
+
+  if (!userToken || !(await bcrypt.compare(refreshToken, userToken.token))) {
+    throw new UnauthorizedException("Session expirée ou piratée");
+  }
+
+  return { id: userId }; // Sera attaché à req.user
+
+  }
+}
+
+const ExtractFromRequest=(req:Request)=>{
+  let token=null;
+    if(req && req.cookies){
+        token=req.cookies['refresh_token']
+    }
+    return token;
+}
+
+================
+File: src/geo/geo.controller.ts
+================
+// src/geo/geo.controller.ts
+// Pas de guard JWT — données géographiques publiques (non-sensibles)
+// Pattern identique à projet.controller.ts et stades.controller.ts
+
+import { Controller, Get, Post, Query, Body, BadRequestException } from '@nestjs/common'
+import { GeoService } from './geo.service'
+
+interface SousZones {
+  tout_selectionner: boolean
+  items: Array<{ code: string; nom: string }>
+}
+
+interface PopulationRequest {
+  niveau: string
+  code: string
+  sousZones: SousZones
+}
+
+@Controller('geo')
+export class GeoController {
+  constructor(private readonly geoService: GeoService) {}
+
+  // GET /api/geo/regions
+  // Retourne les 22 régions Madagascar pour le premier niveau de sélection
+  @Get('regions')
+  getRegions() {
+    return this.geoService.getRegions()
+  }
+
+  // GET /api/geo/enfants?niveau=REGION&code=MG11
+  // Retourne les zones enfants du niveau inférieur
+  //   REGION   → districts    (niveau=REGION,   code=<code_region>)
+  //   DISTRICT → communes     (niveau=DISTRICT, code=<code_district>)
+  //   COMMUNE  → fokontany    (niveau=COMMUNE,  code=<code_commune>)
+  @Get('enfants')
+  getEnfants(
+    @Query('niveau') niveau: string,
+    @Query('code') code: string,
+  ) {
+    if (!niveau || !code) {
+      throw new BadRequestException('Les paramètres "niveau" et "code" sont requis')
+    }
+    return this.geoService.getEnfants(niveau, code)
+  }
+
+  // GET /api/geo/population?code=MG11&niveau=REGION
+  // Calcul de population temps réel pour une zone (utilisé dans GeoSelector)
+  @Get('population')
+  getPopulation(
+    @Query('code') code: string,
+    @Query('niveau') niveau: string,
+  ) {
+    if (!code || !niveau) {
+      throw new BadRequestException('Les paramètres "code" et "niveau" sont requis')
+    }
+    return this.geoService.getPopulation(code, niveau)
+  }
+
+  // POST /api/geo/population
+  // Calcul de population avec sous-zones spécifiques (pour affichage temps réel)
+  @Post('population')
+  getPopulationWithSousZones(@Body() body: PopulationRequest) {
+    if (!body.code || !body.niveau) {
+      throw new BadRequestException('Les paramètres "code" et "niveau" sont requis')
+    }
+    return this.geoService.getStatistiquesZone(body.code, body.niveau, body.sousZones)
+  }
+
+  // POST /api/geo/calcul-marche
+  // Calcul de marché pour Stade 3 avec prise en compte du type de client (B2B/B2C)
+  @Post('calcul-marche')
+  calculerMarche(@Body() body: {
+    typeClient: 'B2C' | 'B2B'
+    codeZone: string
+    niveauZone: string
+    pctUtilisateurs: number
+    partsConcurrents: Array<{ nom: string; part_globale_pct: number; part_zone_pct: number }>
+    tam_valeur: number
+    sam_valeur: number
+    som_valeur: number
+  }) {
+    if (!body.codeZone || !body.niveauZone) {
+      throw new BadRequestException('Les paramètres "codeZone" et "niveauZone" sont requis')
+    }
+    return this.geoService.calculerMarche(body)
+  }
+}
+
+================
+File: src/geo/geo.module.ts
+================
+// src/geo/geo.module.ts
+import { Module } from '@nestjs/common'
+import { GeoController } from './geo.controller'
+import { GeoService } from './geo.service'
+import { PrismaModule } from '../prisma/prisma.module'
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [GeoController],
+  providers: [GeoService],
+  exports: [GeoService], // Exporté pour injection dans Stade1Engine
+})
+export class GeoModule {}
+
+================
+File: src/geo/geo.service.ts
+================
+// src/geo/geo.service.ts
+// Service géographique basé sur la table DonneesGeographiques (INSTAT 2018, 17 465 Fokontany)
+// Hiérarchie : REGION → DISTRICT → COMMUNE → FOKONTANY
+
+import { Injectable, BadRequestException } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+
+// Configuration de la hiérarchie géographique
+// Chaque niveau connaît son champ code+nom et le niveau de ses enfants
+const HIERARCHY = {
+  REGION: {
+    codeField: 'code_region' as const,
+    nomField: 'nom_region' as const,
+    childLevel: 'DISTRICT' as const,
+  },
+  DISTRICT: {
+    codeField: 'code_district' as const,
+    nomField: 'nom_district' as const,
+    childLevel: 'COMMUNE' as const,
+  },
+  COMMUNE: {
+    codeField: 'code_commune' as const,
+    nomField: 'nom_commune' as const,
+    childLevel: 'FOKONTANY' as const,
+  },
+  FOKONTANY: {
+    codeField: 'code_fokontany' as const,
+    nomField: 'nom_fokontany' as const,
+    childLevel: null,
+  },
+} as const
+
+type NiveauGeo = keyof typeof HIERARCHY
+
+export interface ZoneItem {
+  code: string
+  nom: string
+}
+
+export interface StatistiquesZone {
+  population_2018: number
+  projection_actuelle: number  // Valeur de la colonne projection_2026 (INSTAT)
+                               // Renommée ici pour découpler l'API du nom de colonne DB
+  nb_fokontany: number
+}
+
+interface SousZones {
+  tout_selectionner: boolean
+  items: Array<{ code: string; nom: string }>
+}
+
+@Injectable()
+export class GeoService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ── GET /geo/regions ──────────────────────────────────────────────────────
+  // Toutes les régions distinctes (22 régions Madagascar)
+  async getRegions(): Promise<ZoneItem[]> {
+    const rows = await this.prisma.donneesGeographiques.findMany({
+      select: { code_region: true, nom_region: true },
+      distinct: ['code_region'],
+      orderBy: { nom_region: 'asc' },
+    })
+    return rows.map((r) => ({ code: r.code_region, nom: r.nom_region }))
+  }
+
+  // ── GET /geo/enfants?niveau=REGION&code=MG11 ──────────────────────────────
+  // Zones enfants du niveau inférieur :
+  //   niveau=REGION,   code=<code_region>   → les districts de cette région
+  //   niveau=DISTRICT, code=<code_district> → les communes de ce district
+  //   niveau=COMMUNE,  code=<code_commune>  → les fokontany de cette commune
+  //   niveau=FOKONTANY                      → [] (terminal, pas d'enfants)
+  async getEnfants(niveauParent: string, codeParent: string): Promise<ZoneItem[]> {
+    const parentConfig = HIERARCHY[niveauParent as NiveauGeo]
+    if (!parentConfig) {
+      throw new BadRequestException(
+        `Niveau inconnu : ${niveauParent}. Valeurs attendues : REGION | DISTRICT | COMMUNE | FOKONTANY`,
+      )
+    }
+
+    if (parentConfig.childLevel === null) return []
+
+    const childConfig = HIERARCHY[parentConfig.childLevel]
+
+    const rows = await this.prisma.donneesGeographiques.findMany({
+      where: { [parentConfig.codeField]: codeParent },
+      select: {
+        [childConfig.codeField]: true,
+        [childConfig.nomField]: true,
+      },
+      distinct: [childConfig.codeField],
+      orderBy: { [childConfig.nomField]: 'asc' },
+    })
+
+    return rows.map((r: Record<string, string>) => ({
+      code: r[childConfig.codeField],
+      nom: r[childConfig.nomField],
+    }))
+  }
+
+  // ── GET /geo/population?code=MG11&niveau=REGION ────────────────────────────
+  // Calcul de population temps réel pour une zone donnée
+  // Utilisé côté UI pour afficher la taille de marché pendant la sélection
+  async getPopulation(code: string, niveau: string): Promise<StatistiquesZone> {
+    return this.getStatistiquesZone(code, niveau, { tout_selectionner: true, items: [] })
+  }
+
+  // ── MÉTHODE INTERNE : Agrégation géo-hiérarchique ─────────────────────────
+  // Appelée par Stade1Engine lors du PUT pour injecter les métriques de population.
+  // Logique d'agrégation selon CONCEPTION_IMPACT_GEO_MENTOR.md :
+  //   - Si niveau = REGION et tout_selectionner ou items vide → somme tous fokontany de la région
+  //   - Si sous_zones.items présents → somme uniquement les fokontany des sous-zones spécifiées
+  async getStatistiquesZone(
+    codeZone: string,
+    niveau: string,
+    sousZones: SousZones,
+  ): Promise<StatistiquesZone> {
+      // console.log("AVANT LA REQUETE")
+    const config = HIERARCHY[niveau as NiveauGeo]
+    if (!config) {
+      throw new BadRequestException(`Niveau inconnu : ${niveau}`)
+    }
+
+    let where: Record<string, unknown>
+
+    // Détermine le filtre WHERE selon la sélection hiérarchique
+    if (
+      !sousZones ||
+      sousZones.tout_selectionner ||
+      !sousZones.items ||
+      sousZones.items.length === 0
+    ) {
+      // Agrégation complète : tous les fokontany de la zone principale
+      where = { [config.codeField]: codeZone }
+    } else {
+      // Agrégation partielle : sous-zones sélectionnées uniquement
+      // On détermine le niveau des enfants de la zone principale pour filtrer
+      if (config.childLevel === null) {
+        // Fokontany terminal : un seul record
+        where = { [config.codeField]: codeZone }
+      } else {
+        const childConfig = HIERARCHY[config.childLevel]
+        const codes = sousZones.items.map((i) => i.code)
+        where = { [childConfig.codeField]: { in: codes } }
+      }
+    }
+  
+    const agg = await this.prisma.donneesGeographiques.aggregate({
+      where,
+      _sum: {
+        population_2018: true,
+        projection_2026: true,
+      },
+      _count: {
+        code_fokontany: true,
+      },
+    })
+    // console.log("APRES LA REQUETE")
+    return {
+      population_2018: agg._sum.population_2018 ?? 0,
+      projection_actuelle: agg._sum.projection_2026 ?? 0, // colonne DB : projection_2026
+      nb_fokontany: agg._count.code_fokontany ?? 0,
+    }
+  }
+
+  // ── POST /geo/calcul-marche ───────────────────────────────────────────────
+  // Calcul de marché pour Stade 3 avec prise en compte du type de client (B2B/B2C)
+  async calculerMarche(request: {
+    typeClient: 'B2C' | 'B2B'
+    codeZone: string
+    niveauZone: string
+    pctUtilisateurs: number
+    partsConcurrents: Array<{ nom: string; part_globale_pct: number; part_zone_pct: number }>
+    tam_valeur: number
+    sam_valeur: number
+    som_valeur: number
+  }): Promise<{
+    population_totale: number
+    population_concernee: number
+    parts_concurrents_zone_pct: number
+    population_occupee_concurrents: number
+    population_disponible: number
+    sam_pct_utilisateurs: number
+    sam_pct_population_totale: number
+    som_pct_utilisateurs: number
+    som_pct_population_totale: number
+    alertes: string[]
+    niveau_alerte: 'VERT' | 'ORANGE' | 'ROUGE'
+  }> {
+    // Pour B2B, retourner seulement les valeurs saisies sans calculs
+    if (request.typeClient === 'B2B') {
+      return {
+        population_totale: 0,
+        population_concernee: 0,
+        parts_concurrents_zone_pct: 0,
+        population_occupee_concurrents: 0,
+        population_disponible: 0,
+        sam_pct_utilisateurs: 0,
+        sam_pct_population_totale: 0,
+        som_pct_utilisateurs: 0,
+        som_pct_population_totale: 0,
+        alertes: [],
+        niveau_alerte: 'VERT',
+      }
+    }
+
+    // 1. Population totale de la zone
+    const statsZone = await this.getStatistiquesZone(
+      request.codeZone,
+      request.niveauZone,
+      { tout_selectionner: true, items: [] }
+    )
+    const populationTotale = statsZone.population_2018
+
+    // 2. Population concernée (utilisateurs potentiels)
+    const populationConcernee = (populationTotale * request.pctUtilisateurs) / 100
+
+    // 3. Parts concurrents dans la zone
+    const totalPartsConcurrentsZone = request.partsConcurrents.reduce(
+      (sum, c) => sum + c.part_zone_pct, 0
+    )
+
+    // 4. Population occupée par les concurrents
+    const populationOccupee = (populationTotale * totalPartsConcurrentsZone) / 100
+
+    // 5. Population disponible
+    const populationDisponible = populationTotale - populationOccupee
+
+    // 6. Pourcentages SAM par rapport aux utilisateurs et population totale
+    const samPctUtilisateurs = populationConcernee > 0
+      ? (request.sam_valeur / populationConcernee) * 100
+      : 0
+    const samPctTotale = populationTotale > 0
+      ? (request.sam_valeur / populationTotale) * 100
+      : 0
+
+    // 7. Pourcentages SOM par rapport aux utilisateurs et population totale
+    const somPctUtilisateurs = populationConcernee > 0
+      ? (request.som_valeur / populationConcernee) * 100
+      : 0
+    const somPctTotale = populationTotale > 0
+      ? (request.som_valeur / populationTotale) * 100
+      : 0
+
+    // 8. Alertes basées sur benchmarks startup
+    const alertes: string[] = []
+    let niveauAlerte: 'VERT' | 'ORANGE' | 'ROUGE' = 'VERT'
+
+    // Seuils basés sur benchmarks : early-stage startups capturent 2-5% de leur SAM
+    // SOM > 30% des utilisateurs calculés = irréaliste
+    if (somPctUtilisateurs > 30) {
+      alertes.push(`SOM représente ${somPctUtilisateurs.toFixed(1)}% des utilisateurs calculés. Les startups early-stage capturent généralement 2-5% de leur marché cible. Considérez un objectif plus réaliste.`)
+      niveauAlerte = 'ROUGE'
+    } else if (somPctUtilisateurs > 10) {
+      alertes.push(`SOM représente ${somPctUtilisateurs.toFixed(1)}% des utilisateurs calculés. C'est ambitieux mais possible avec une exécution excellente.`)
+      niveauAlerte = 'ORANGE'
+    }
+
+    // SAM > 60% des utilisateurs calculés = warning
+    if (samPctUtilisateurs > 60) {
+      alertes.push(`SAM représente ${samPctUtilisateurs.toFixed(1)}% des utilisateurs calculés. Vérifiez que votre SAM est réaliste par rapport à votre capacité actuelle.`)
+      if (niveauAlerte === 'VERT') niveauAlerte = 'ORANGE'
+    }
+
+    return {
+      population_totale: populationTotale,
+      population_concernee: populationConcernee,
+      parts_concurrents_zone_pct: totalPartsConcurrentsZone,
+      population_occupee_concurrents: populationOccupee,
+      population_disponible: populationDisponible,
+      sam_pct_utilisateurs: samPctUtilisateurs,
+      sam_pct_population_totale: samPctTotale,
+      som_pct_utilisateurs: somPctUtilisateurs,
+      som_pct_population_totale: somPctTotale,
+      alertes,
+      niveau_alerte: niveauAlerte,
+    }
+  }
+}
+
+================
+File: src/prisma/prisma.module.ts
+================
+// src/prismaRepo/prisma.module.ts
+import { Global, Module } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Global()
+@Module({
+  providers: [PrismaService],
+  exports: [PrismaService], // <--- C'EST ICI ! Il faut exporter le SERVICE, pas le MODULE.
+})
+export class PrismaModule {}
+
+================
+File: src/prisma/prisma.service.ts
+================
+// src/prisma/prisma.service.ts
+import { Injectable, OnModuleInit,OnModuleDestroy} from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit {
+
+  async onModuleInit() {
+    await this.$connect();
+  }
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
+}
+
+================
+File: src/projet/data.pipe.ts
+================
+// import { ArgumentMetadata, PipeTransform } from "@nestjs/common";
+// import { ProjetDto, UpdateDto } from "./projet.dto";
+// import { isDate, IsDate } from "class-validator";
+
+// export class ParseCreateProjetPipe implements PipeTransform{
+//        transform(value:any):ProjetDto{
+//         console.log(isDate(new Date(value.dateDebutPrevu as string)))
+//            return {
+//             titre:value.titre,
+//             dateDebutPrevu:new Date(value.dateDebutPrevu as string),
+//             dateFinPrevu:new Date(value.dateFinPrevu as string),
+//             description:value.description
+//            }
+//        }
+      
+// }
+// export class ParseUpdateProjetPipe implements PipeTransform{
+//     transform(value:UpdateDto, metadata: ArgumentMetadata):UpdateDto{
+//         return {
+//             titre:value.titre,
+//             dateDebutPrevu:value.dateDebutPrevu?new Date(value.dateDebutPrevu):undefined,
+//             dateFinPrevu:value.dateFinPrevu?new Date(value.dateFinPrevu):undefined,
+//             description:value.description
+//            }
+//     }
+// }
+
+================
+File: src/stades/engines/IStadeEngine.ts
+================
+// src/stades/engines/IStadeEngine.ts
+// Interface générique typée — chaque Engine doit l'implémenter avec ses propres types
+// L'utilisation de Generics TypeScript assure la sécurité de typage à la compilation
+
+import { GateResult } from '../types'
+
+export interface IStadeEngine<TDonnees, TMetriques> {
+  /**
+   * Calcule les métriques métier à partir des données saisies.
+   * Ex: Calcul de population (S1), Point Mort (S5), etc.
+   * Peut être async (ex: S1 qui interroge la BDD pour la population Geo)
+   */
+  calculerMetriques(donnees: TDonnees): Promise<TMetriques> | TMetriques
+
+  /**
+   * Vérifie si les conditions de succès (Gate) sont remplies.
+   * Retourne la liste des conditions valides/invalides et les alertes critiques.
+   */
+  verifierGate(donnees: TDonnees, metriques: TMetriques): GateResult
+}
+
+================
+File: src/stades/engines/stade1.engine.ts
+================
+// src/stades/engines/stade1.engine.ts
+// Moteur Stade 1 — Émergence & Géo Hiérarchique
+// Injecte GeoService pour calculer la population réelle depuis DonneesGeographiques
+// Gate vérifie zone_principale.code (structure hiérarchique, patch selectionGeo)
+//
+// FIX: Tous les accès aux sous-propriétés de `donnees` sont maintenant sécurisés
+// avec l'opérateur `?? {}` (objet vide) ou `?? []` (tableau vide) pour éviter
+// les erreurs "Cannot read properties of undefined" quand donnees est partiel
+// ou vide (brouillon, stade nouvellement créé).
+
+import { Injectable } from '@nestjs/common'
+import { GeoService } from '../../geo/geo.service'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade1, MetriquesStade1 } from '@matura/shared'
+
+@Injectable()
+export class Stade1Engine implements IStadeEngine<DonneesStade1, MetriquesStade1> {
+  constructor(private readonly geoService: GeoService) {}
+
+  // ── Calcul des métriques — async car appel BDD pour la population ─────────
+  async calculerMetriques(donnees: DonneesStade1): Promise<MetriquesStade1> {
+    let score_solidite_probleme = 0
+    let nombre = 0
+    let cout = 0
+
+    // FIX: Utilisation de ?? {} pour chaque sous-objet susceptible d'être absent
+    const obs = donnees.observations_terrain ?? ({} as Partial<DonneesStade1['observations_terrain']>)
+    const profil = donnees.profil_affecte ?? ({} as Partial<DonneesStade1['profil_affecte']>)
+    const intensite = donnees.intensite_probleme ?? ({} as Partial<DonneesStade1['intensite_probleme']>)
+    const solutions = donnees.solutions_existantes ?? []
+
+    const verbatims = obs.verbatims ?? []
+    const nb = obs.nb_personnes_interrogees ?? 0
+    nombre = profil.nombre_estime ?? 0
+    const severite = intensite.severite ?? 1
+    cout = intensite.cout_actuel_ar ?? 0
+
+    if (donnees.contexte_geographique) {
+      score_solidite_probleme = Math.round(
+        Math.min(nb / 10, 1) * 30 +
+        ((severite - 1) / 4) * 25 +
+        Math.min(solutions.length / 3, 1) * 20 +
+        Math.min(verbatims.length / 5, 1) * 15 +
+        (cout > 0 ? 10 : 0),
+      )
+    }
+
+    // ── Calcul de la population via GeoService (données INSTAT Fokontany) ────
+    let population_reference = 0
+    let population_projetee = 0
+
+    try {
+      const geo = donnees.contexte_geographique
+      if (geo?.zone_principale?.code) {
+        const stats = await this.geoService.getStatistiquesZone(
+          geo.zone_principale.code,
+          geo.niveau_principal,
+          geo.sous_zones,
+        )
+        population_reference = stats.population_2018
+        population_projetee = stats.projection_actuelle
+      }
+    } catch {
+      // Si les données géo ne sont pas disponibles, on garde 0
+      // Le gate ZONE_GEO sera invalidé séparément
+      population_reference = 0
+      population_projetee = 0
+    }
+
+    return {
+      score_solidite_probleme,
+      marche_preliminaire_ar: (population_reference || nombre) * cout,
+      population_reference,
+      population_projetee,
+      coherence_population: population_reference > 0 || nombre > 0,
+    }
+  }
+
+  // ── Vérification Gate — structure hiérarchique (patch selectionGeo) ────────
+  verifierGate(donnees: DonneesStade1, metriques: MetriquesStade1): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string,
+      libelle: string,
+      valide: boolean,
+      actuel: number | string | boolean,
+      requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide)
+        alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    // FIX: Sécurisation des accès dans verifierGate également
+    const obs = donnees.observations_terrain ?? ({} as Partial<DonneesStade1['observations_terrain']>)
+    const nb = obs.nb_personnes_interrogees ?? 0
+    const verbatims = (obs.verbatims ?? []).filter((v) => v.trim().length > 0).length
+    const solutions = (donnees.solutions_existantes ?? []).length
+    const score = metriques.score_solidite_probleme ?? 0
+
+    // ZONE_GEO : vérification par zone_principale.code (structure hiérarchique)
+    const geo = donnees.contexte_geographique
+    const aZonePrincipale = !!(geo?.zone_principale?.code?.trim())
+
+    addCond('NB_ENTRETIENS', 'Minimum 3 entretiens terrain', nb >= 3, nb, 3)
+    addCond('VERBATIMS', 'Minimum 2 verbatims', verbatims >= 2, verbatims, 2)
+    addCond('SOLUTIONS', 'Au moins 1 solution existante', solutions >= 1, solutions, 1)
+    addCond(
+      'ZONE_GEO',
+      'Zone géographique sélectionnée',
+      aZonePrincipale,
+      aZonePrincipale ? 'définie' : 'absente',
+      'définie',
+    )
+    addCond('SCORE_SOLIDITE', 'Score solidité >= 30', score >= 30, score, 30)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return {
+      peut_soumettre: conds.every((c) => c.valide),
+      completion_pct,
+      conditions: conds,
+      alertes_critiques: alertes,
+    }
+  }
+}
+
+================
+File: src/stades/engines/stade2.engine.ts
+================
+// src/stades/engines/stade2.engine.ts
+// Moteur Stade 2 — Idéation (Lean Canvas)
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade2, MetriquesStade2 } from '@matura/shared'
+
+@Injectable()
+export class Stade2Engine implements IStadeEngine<DonneesStade2, MetriquesStade2> {
+  calculerMetriques(donnees: DonneesStade2): MetriquesStade2 {
+    const couts = donnees.bloc_structure_couts ?? []
+    const revenus = donnees.bloc_sources_revenus ?? []
+    const solution = donnees.bloc_solution
+
+    const burn_rate_mensuel = couts.reduce((s, c) => s + (c.montant_mensuel_ar ?? 0), 0)
+    const revenu_potentiel_mensuel = revenus.reduce((s, r) => s + (r.estimation_mensuelle_ar ?? 0), 0)
+    const ecart_mensuel = revenu_potentiel_mensuel - burn_rate_mensuel
+    const nb_must_have = (solution?.fonctionnalites ?? []).filter((f) => f.priorite === 'INDISPENSABLE').length
+
+    // Score de cohérence Lean Canvas (blocs non vides)
+    const blocsReq = [
+      'bloc_probleme', 'bloc_segments_clients', 'bloc_solution',
+      'bloc_proposition_valeur', 'bloc_canaux', 'bloc_sources_revenus', 'bloc_structure_couts',
+    ]
+    const blocsOk = blocsReq.filter((b) => !!(donnees as Record<string, unknown>)[b]).length
+    const score_coherence_canvas = Math.round((blocsOk / blocsReq.length) * 100)
+
+    return {
+      burn_rate_mensuel,
+      revenu_potentiel_mensuel,
+      ecart_mensuel,
+      nb_must_have,
+      score_coherence_canvas,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade2, metriques: MetriquesStade2): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    const blocsReq = [
+      'bloc_probleme', 'bloc_segments_clients', 'bloc_solution',
+      'bloc_proposition_valeur', 'bloc_canaux', 'bloc_sources_revenus', 'bloc_structure_couts',
+    ]
+    const blocsOk = blocsReq.filter((b) => !!(donnees as Record<string, unknown>)[b]).length
+    const sources = (donnees.bloc_sources_revenus ?? []).length
+
+    addCond('BLOCS_COMPLETS', `Tous les blocs remplis (${blocsReq.length})`, blocsOk >= blocsReq.length, blocsOk, blocsReq.length)
+    addCond('SOURCES_REVENUS', 'Au moins 1 source de revenus', sources >= 1, sources, 1)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/engines/stade3.engine.ts
+================
+// src/stades/engines/stade3.engine.ts
+// Moteur Stade 3 — Validation Marché (TAM/SAM/SOM + IRP)
+//
+// FIX: Tous les accès aux sous-propriétés de `donnees` sont maintenant sécurisés
+// avec ?? {} / ?? [] pour éviter les erreurs "Cannot read properties of undefined"
+// quand donnees est partiel (brouillon, stade nouvellement créé).
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade3, MetriquesStade3 } from '@matura/shared'
+
+@Injectable()
+export class Stade3Engine implements IStadeEngine<DonneesStade3, MetriquesStade3> {
+  calculerMetriques(donnees: DonneesStade3): MetriquesStade3 {
+    // FIX: Sécurisation des sous-objets potentiellement absents
+    const enquete = donnees.enquete ?? ({} as Partial<DonneesStade3['enquete']>)
+    const concurrents = donnees.concurrents ?? []
+    const positionnement = donnees.positionnement_prix ?? ({} as Partial<DonneesStade3['positionnement_prix']>)
+    const irp = positionnement.irp ?? ({} as Partial<NonNullable<DonneesStade3['positionnement_prix']>['irp']>)
+    const taille = donnees.taille_marche ?? ({} as Partial<DonneesStade3['taille_marche']>)
+
+    const tauxPositif = enquete.taux_reponse_positive ?? 0
+    const echantillon = enquete.taille_echantillon ?? 0
+    const revenuMoyen = irp.revenu_moyen_zone_ar ?? 0
+    const prixReco = positionnement.prix_recommande_ar ?? 0
+
+    const ratio_revenu_pct = revenuMoyen > 0 ? (prixReco / revenuMoyen) * 100 : 0
+    let niveau_realisme: 'REALISTE' | 'ATTENTION' | 'CRITIQUE' = 'CRITIQUE'
+    if (ratio_revenu_pct > 0 && ratio_revenu_pct <= 5) niveau_realisme = 'REALISTE'
+    else if (ratio_revenu_pct > 5 && ratio_revenu_pct <= 15) niveau_realisme = 'ATTENTION'
+
+    const score_echantillon = Math.min(echantillon / 50, 1) * 25
+    const score_demande = (tauxPositif / 100) * 30
+    const score_concurrence = Math.min(concurrents.length / 3, 1) * 25
+    const score_prix = niveau_realisme === 'REALISTE' ? 20 : niveau_realisme === 'ATTENTION' ? 10 : 0
+    const score_marche = Math.round(score_echantillon + score_demande + score_concurrence + score_prix)
+
+    // Marché disponible en tenant compte des concurrents
+    const population_reference = taille.population_reference ?? 0
+    const sam_obj = taille.sam ?? ({} as Partial<NonNullable<DonneesStade3['taille_marche']>['sam']>)
+    const population_libre = Math.round(population_reference * (1 - (taille.part_concurrents_pct ?? 0) / 100))
+    const sam_realiste = sam_obj.valeur ?? 0
+    const potentiel_marche_ar = sam_realiste * prixReco
+
+    return {
+      score_echantillon: Math.round(score_echantillon),
+      score_demande: Math.round(score_demande),
+      score_concurrence: Math.round(score_concurrence),
+      score_marche,
+      ratio_revenu_pct: Math.round(ratio_revenu_pct * 100) / 100,
+      niveau_realisme,
+      cout_mensuel_equivalent: prixReco,
+      nb_concurrents: concurrents.length,
+      population_libre,
+      sam_realiste,
+      potentiel_marche_ar,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade3, metriques: MetriquesStade3): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    const nb = metriques.nb_concurrents ?? 0
+    const score = metriques.score_marche ?? 0
+    const realisme = metriques.niveau_realisme ?? 'CRITIQUE'
+    // FIX: sources_marche peut être absent si donnees est partiel
+    const sources = (donnees.sources_marche ?? []).length
+
+    addCond('CONCURRENTS', 'Minimum 3 concurrents', nb >= 3, nb, 3)
+    addCond('SCORE_MARCHE', 'Score marché >= 50', score >= 50, score, 50)
+    addCond('IRP', 'Prix non critique (IRP)', realisme !== 'CRITIQUE', realisme, 'REALISTE ou ATTENTION')
+    addCond('SOURCES', 'Au moins 1 source de données', sources >= 1, sources, 1)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/engines/stade4.engine.ts
+================
+// src/stades/engines/stade4.engine.ts
+// Moteur Stade 4 — Business Model Canvas (BMC)
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade4, MetriquesStade4 } from '@matura/shared'
+
+@Injectable()
+export class Stade4Engine implements IStadeEngine<DonneesStade4, MetriquesStade4> {
+  calculerMetriques(donnees: DonneesStade4): MetriquesStade4 {
+    const revenus = donnees.sources_revenus ?? []
+    const couts = donnees.structure_couts ?? []
+
+    const revenu_total_mensuel = revenus.reduce((s, r) => s + (r.revenu_mensuel_ar ?? 0), 0)
+    const couts_total_mensuel = couts.reduce((s, c) => s + (c.montant_mensuel_ar ?? 0), 0)
+    const marge_brute_pct = revenu_total_mensuel > 0
+      ? Math.round(((revenu_total_mensuel - couts_total_mensuel) / revenu_total_mensuel) * 100)
+      : 0
+
+    // Complétude BMC : 7 blocs actifs (canaux et relations_clients sont optionnels
+    // car ils étaient déjà saisis en Stade 2 via bloc_canaux)
+    const blocs = [
+      'evolution_lean_canvas', 'propositions_valeur', 'segments_clients',
+      'ressources_cles', 'activites_cles', 'partenaires_cles',
+      'structure_couts', 'sources_revenus',
+    ]
+    const remplis = blocs.filter((b) => !!(donnees as Record<string, unknown>)[b]).length
+    const score_completude_bmc = Math.round((remplis / blocs.length) * 100)
+
+    return {
+      revenu_total_mensuel,
+      couts_total_mensuel,
+      marge_brute_pct,
+      score_completude_bmc,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade4, metriques: MetriquesStade4): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    const rev = (donnees.sources_revenus ?? []).length
+    const evolution = donnees.evolution_lean_canvas
+    const completude = metriques.score_completude_bmc ?? 0
+
+    addCond('COMPLETUDE_BMC', 'Complétude BMC >= 70%', completude >= 70, completude, 70)
+    addCond('EVOLUTION', 'Évolution depuis Lean Canvas documentée', !!evolution?.ce_qui_a_change, !!evolution?.ce_qui_a_change, true)
+    addCond('SOURCES_REVENUS', 'Au moins 1 source de revenus', rev >= 1, rev, 1)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/engines/stade5.engine.ts
+================
+// src/stades/engines/stade5.engine.ts
+// Moteur Stade 5 — Faisabilité (Finance, Équipe, Jalons)
+//
+// FIX: Tous les accès aux sous-propriétés de `donnees` sont maintenant sécurisés
+// avec ?? {} / ?? [] pour éviter les erreurs "Cannot read properties of undefined"
+// quand donnees est partiel (brouillon, stade nouvellement créé).
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade5, MetriquesStade5 } from '@matura/shared'
+
+@Injectable()
+export class Stade5Engine implements IStadeEngine<DonneesStade5, MetriquesStade5> {
+  calculerMetriques(donnees: DonneesStade5): MetriquesStade5 {
+    // FIX: Sécurisation du sous-objet finances qui peut être absent (brouillon vide)
+    const finances = donnees.finances ?? ({} as Partial<DonneesStade5['finances']>)
+    const membres = donnees.membres_equipe ?? []
+    const disciplines = donnees.disciplines_requises_projet ?? []
+    const jalons = donnees.jalons ?? []
+
+    // FIX: Accès aux sous-tableaux et valeurs de finances via ?? sécurisé
+    const chargesFixes = (finances.charges_fixes ?? []).reduce(
+      (s, c) => s + ((c.montant_mensuel_ar ?? 0) * 12), 0,
+    )
+    const coutVar = (finances.charges_variables ?? []).reduce(
+      (s, c) => s + (c.montant_par_unite_ar ?? 0), 0,
+    )
+    const prixVente = finances.prix_vente_ar ?? 0
+    const unites = finances.unites_projetees ?? { annee1: 0, annee2: 0, annee3: 0 }
+    const investissement = finances.investissement_initial_ar ?? 0
+
+    const marge = prixVente - coutVar
+    const point_mort_unites = marge > 0 ? Math.ceil(chargesFixes / marge) : 0
+    const point_mort_revenus = point_mort_unites * prixVente
+
+    const ca1 = unites.annee1 * prixVente
+    const ca2 = unites.annee2 * prixVente
+    const ca3 = unites.annee3 * prixVente
+    const res1 = ca1 - chargesFixes - unites.annee1 * coutVar
+    const res2 = ca2 - chargesFixes - unites.annee2 * coutVar
+    const res3 = ca3 - chargesFixes - unites.annee3 * coutVar
+    const roi = investissement > 0 ? Math.round(((res3 - investissement) / investissement) * 100) : 0
+
+    // Autonomie financière : mois avant point mort
+    const autonomie_mois = marge > 0 ? Math.ceil(chargesFixes / (marge * 12)) : 0
+
+    // Interdisciplinarité équipe
+    const disciplinesPresentes = new Set<string>()
+    membres.forEach((m) => (m.disciplines ?? []).forEach((dc) => disciplinesPresentes.add(dc)))
+    const score_interdisciplinarite = disciplines.length > 0
+      ? Math.round((disciplinesPresentes.size / disciplines.length) * 100) : 0
+    const disciplines_manquantes = disciplines.filter((dc) => !disciplinesPresentes.has(dc))
+
+    // Ratio revenu client (WTP vs prix)
+    const ratio_revenu_client = 0 // calculé si données S3 disponibles
+
+    return {
+      charges_fixes_annuelles: chargesFixes,
+      cout_variable_unitaire: coutVar,
+      marge_contribution: marge,
+      point_mort_unites,
+      point_mort_revenus,
+      ca_previsionnel: { annee1: ca1, annee2: ca2, annee3: ca3 },
+      resultat_net: { annee1: res1, annee2: res2, annee3: res3 },
+      roi,
+      autonomie_mois,
+      score_interdisciplinarite,
+      disciplines_manquantes: disciplines_manquantes as typeof disciplines,
+      ratio_revenu_client,
+      // Compteurs — inclus dans les métriques pour affichage frontend (GET stade)
+      nb_membres: membres.length,
+      nb_jalons: jalons.length,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade5, metriques: MetriquesStade5): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    const marge = metriques.marge_contribution ?? 0
+    const res1 = metriques.resultat_net?.annee1 ?? 0
+    // FIX: Accès sécurisé à membres_equipe et jalons également dans Gate
+    const membres = (donnees.membres_equipe ?? []).length
+    const jalons = (donnees.jalons ?? []).length
+    const scoreEquipe = metriques.score_interdisciplinarite ?? 0
+
+    addCond('MARGE_POSITIVE', 'Marge contribution > 0', marge > 0, marge, '>0')
+    addCond('RESULTAT_AN1', 'Résultat net positif an 1', res1 > 0, res1, '>0')
+    addCond('MEMBRES', 'Au moins 1 membre équipe', membres >= 1, membres, 1)
+    addCond('JALONS', 'Minimum 3 jalons', jalons >= 3, jalons, 3)
+    addCond('INTERDISCIPLINARITE', 'Score équipe >= 50%', scoreEquipe >= 50, scoreEquipe, 50)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/engines/stade6.engine.ts
+================
+// src/stades/engines/stade6.engine.ts
+// Moteur Stade 6 — Prototype (MVP, retours clients, traction)
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade6, MetriquesStade6 } from '@matura/shared'
+
+@Injectable()
+export class Stade6Engine implements IStadeEngine<DonneesStade6, MetriquesStade6> {
+  calculerMetriques(donnees: DonneesStade6): MetriquesStade6 {
+    const retours = donnees.retours_clients ?? []
+    const metriques = donnees.metriques_usage
+
+    const positifs = retours.filter((r) => r.sentiment === 'POSITIF').length
+    const taux_positivite_retours = retours.length > 0
+      ? Math.round((positifs / retours.length) * 100) : 0
+
+    const nps = metriques?.score_nps ?? -100
+    const taux_retention = metriques?.taux_retention_pct ?? 0
+    const clients_payants = metriques?.clients_payants ?? 0
+
+    // Signal Product-Market Fit : combinaison NPS, rétention, positivité retours
+    const signal_product_market_fit = Math.round(
+      ((nps + 100) / 200) * 40 +        // NPS normalisé sur 40 pts
+      (taux_retention / 100) * 30 +      // Rétention sur 30 pts
+      (taux_positivite_retours / 100) * 30, // Positivité retours sur 30 pts
+    )
+
+    return {
+      signal_product_market_fit: Math.min(signal_product_market_fit, 100),
+      taux_positivite_retours,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade6, metriques: MetriquesStade6): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    const retours = (donnees.retours_clients ?? []).length
+    const iterations = (donnees.iterations ?? []).length
+    const mUsage = donnees.metriques_usage
+    const clients = mUsage?.clients_payants ?? 0
+    const revenus = mUsage?.revenus_generes_ar ?? 0
+    const nps = mUsage?.score_nps ?? -100
+
+    addCond('RETOURS', 'Minimum 5 retours clients', retours >= 5, retours, 5)
+    addCond('TRACTION', 'Clients payants > 0 ou revenus > 0', clients > 0 || revenus > 0, clients > 0 || revenus > 0, true)
+    addCond('NPS', 'NPS >= 0', nps >= 0, nps, 0)
+    addCond('ITERATIONS', 'Au moins 1 itération documentée', iterations >= 1, iterations, 1)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/engines/stade7.engine.ts
+================
+// src/stades/engines/stade7.engine.ts
+// Moteur Stade 7 — Lancement (Deck Investisseur, Cohérence Financement)
+
+import { Injectable } from '@nestjs/common'
+import { IStadeEngine } from './IStadeEngine'
+import { GateResult, GateCondition, AlerteInterne } from '../types'
+import { DonneesStade7 } from '@matura/shared'
+
+// Les métriques S7 ne sont pas encore définies dans shared — on définit le type ici
+// Elles seront ajoutées dans MetriquesStade7Schema lors du prochain cycle
+interface MetriquesStade7 {
+  montant_demande_ar: number
+  somme_utilisations_ar: number
+  coherence_utilisation: boolean
+  score_completude_deck: number
+}
+
+@Injectable()
+export class Stade7Engine implements IStadeEngine<DonneesStade7, MetriquesStade7> {
+  calculerMetriques(donnees: DonneesStade7): MetriquesStade7 {
+    const demande = donnees.demande_financement
+    const montant_demande_ar = demande?.montant_ar ?? 0
+    const utilisation = demande?.utilisation ?? []
+    const somme_utilisations_ar = utilisation.reduce((s, u) => s + (u.montant_ar ?? 0), 0)
+    const coherence_utilisation = montant_demande_ar > 0 && Math.abs(montant_demande_ar - somme_utilisations_ar) < 1
+
+    // Complétude du deck : 3 blocs requis
+    const blocsOk = [
+      !!donnees.resume_executif?.phrase_accroche,
+      montant_demande_ar > 0,
+      !!donnees.contexte_investisseur?.pourquoi_maintenant,
+    ].filter(Boolean).length
+    const score_completude_deck = Math.round((blocsOk / 3) * 100)
+
+    return {
+      montant_demande_ar,
+      somme_utilisations_ar,
+      coherence_utilisation,
+      score_completude_deck,
+    }
+  }
+
+  verifierGate(donnees: DonneesStade7, metriques: MetriquesStade7): GateResult {
+    const conds: GateCondition[] = []
+    const alertes: AlerteInterne[] = []
+
+    const addCond = (
+      code: string, libelle: string, valide: boolean,
+      actuel: number | string | boolean, requis: number | string | boolean,
+    ) => {
+      conds.push({ code, libelle, valide, valeur_actuelle: actuel, valeur_requise: requis })
+      if (!valide) alertes.push({ code, niveau: 'CRITIQUE', message: `${libelle} — actuel: ${actuel}, requis: ${requis}` })
+    }
+
+    addCond('RESUME', 'Résumé exécutif rempli', !!donnees.resume_executif?.phrase_accroche, !!donnees.resume_executif?.phrase_accroche, true)
+    addCond('DEMANDE', 'Demande de financement remplie', metriques.montant_demande_ar > 0, metriques.montant_demande_ar, '>0')
+    addCond('UTILISATION', 'Utilisation = montant demandé', metriques.coherence_utilisation, metriques.somme_utilisations_ar, metriques.montant_demande_ar)
+    addCond('CONTEXTE', 'Contexte investisseur rempli', !!donnees.contexte_investisseur?.pourquoi_maintenant, !!donnees.contexte_investisseur?.pourquoi_maintenant, true)
+
+    const nb_valides = conds.filter((c) => c.valide).length
+    const completion_pct = conds.length > 0 ? Math.round((nb_valides / conds.length) * 100) : 0
+
+    return { peut_soumettre: conds.every((c) => c.valide), completion_pct, conditions: conds, alertes_critiques: alertes }
+  }
+}
+
+================
+File: src/stades/types/index.ts
+================
+// src/stades/types/index.ts
+// Types partagés entre l'Orchestrateur et tous les Engines
+
+export interface AlerteInterne {
+  code: string
+  niveau: 'CRITIQUE' | 'ATTENTION' | 'INFO'
+  message: string
+}
+
+export interface GateCondition {
+  code: string
+  libelle: string
+  valide: boolean
+  valeur_actuelle: number | string | boolean
+  valeur_requise: number | string | boolean
+}
+
+export interface GateResult {
+  peut_soumettre: boolean
+  completion_pct: number
+  conditions: GateCondition[]
+  alertes_critiques: AlerteInterne[]
+}
+
+================
+File: src/utilisateur/logger.interceptor.ts
+================
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+@Injectable()
+export class LoggerInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    // --- 1. ACCÈS À LA REQUÊTE ---
+    const request = context.switchToHttp().getRequest();
+    console.log('Avant : ', request.body);
+
+    // --- 2. LOGIQUE AVANT LE GESTIONNAIRE ---
+    
+    return next
+      .handle()
+      .pipe(
+        map(data => {
+          // --- 3. ACCÈS À LA RÉPONSE ET TRANSFORMATION ---
+          console.log('Après : ', data);
+          return { data, time: Date.now() }; // Transformation de la réponse
+        }),
+      );
+  }
+}
+
+================
+File: src/utilisateur/parse-utilisateur.pipe.ts
+================
+// import { PipeTransform, Injectable, ArgumentMetadata, NotFoundException } from '@nestjs/common';
+// import { UserService } from "./user.service"
+
+// type UserDto=any
+// @Injectable()
+// export class ParseUserPipe implements PipeTransform<string, Promise<UserDto>> {
+//   // On injecte le service pour accéder à la base de données
+//   constructor(private readonly usersService: UserService) { }
+
+//   async transform(value: string, metadata: ArgumentMetadata): Promise<UserDto> {
+
+//     const user = await this.usersService.getUserByMail(value);
+
+//     if (!user) {
+//       throw new NotFoundException(`Utilisateur avec l'email ${value} introuvable`);
+//     }
+
+//     // 3. On retourne l'objet User complet
+//     // console.log("Utilisateur trouvé:", user);
+//     return user;
+//   }
+// }
+
+================
+File: src/utilisateur/utilisateur.controller.ts
+================
+import { Body, Controller, Get, Param, Patch, UseGuards, Request } from '@nestjs/common';
+import { UtilisateurService } from './utilisateur.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+@Controller('utilisateurs')
+@UseGuards(JwtAuthGuard)
+export class UtilisateurController {
+  constructor(private readonly utilisateurService: UtilisateurService) {}
+
+  // GET /utilisateurs/moi - Récupérer mon profil complet
+// type RequestPayload<>={}
+
+  @Get('moi')
+  getMonProfil(@Request() req: { user:{ payload:{ id: string } }}) {
+    // console.log("RECUPERATION DES IP - - - - - - - - - -- - - --")
+    // console.log(req.user)
+    return this.utilisateurService.getProfilComplet(req.user.payload.id);
+  }
+
+  // PATCH /utilisateurs/moi - Mettre à jour mon profil
+  @Patch('moi')
+  majMonProfil(
+    @Request() req: { user: {payload:{ id: string, role: string } } },
+    @Body() dto: any,
+  ) {
+    return this.utilisateurService.majProfil(req.user.payload.id, req.user.payload.role, dto);
+  }
+
+  // PATCH /utilisateurs/moi/avatar - Mettre à jour mon avatar
+  @Patch('moi/avatar')
+  majAvatar(
+    @Request() req: { user: {payload:{ id: string }}},
+    @Body() body: { url_avatar: string }
+  ) {
+    return this.utilisateurService.majAvatar(req.user.payload.id, body.url_avatar);
+  }
+
+  // GET /utilisateurs/:id/public - Profil public (pour annuaire mentors)
+  @Get(':id/public')
+  getProfilPublic(@Param('id') id: string) {
+    return this.utilisateurService.getProfilPublic(id);
+  }
+}
+
+================
+File: src/utilisateur/utilisateur.module.ts
+================
+import { Module } from '@nestjs/common';
+import { UtilisateurController } from './utilisateur.controller';
+import { UtilisateurService } from './utilisateur.service';
+
+@Module({
+  controllers: [UtilisateurController],
+  providers: [UtilisateurService],
+  exports: [UtilisateurService],
+})
+export class UtilisateurModule {}
+
+================
+File: src/utilisateur/utilisateur.service.ts
+================
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  ProfilEntrepreneurSchema,
+  ProfilMentorSchema,
+  ProfilInvestisseurSchema,
+} from '@matura/shared';
+
+@Injectable()
+export class UtilisateurService {
+  private readonly logger = new Logger(UtilisateurService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getProfilComplet(userId: string) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        role: true,
+        statut_compte: true,
+        url_avatar: true,
+        profil: true,
+        cree_le: true,
+        maj_le: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    // Validation permissive : nettoyer les données selon le rôle
+    const profilValide = this.validerProfilSelonRole(user.role, user.profil);
+
+    return {
+      ...user,
+      profil: profilValide,
+    };
+  }
+
+  async majProfil(userId: string, role: string, dto: any) {
+    // Validation permissive : nettoyer les données selon le rôle
+    const profilValide = this.validerProfilSelonRole(role, dto);
+  console.log("PROFIL VALIDE - - - - - - - - - -- - - --")
+  console.log(profilValide.url_avatar);
+  
+    const updated = await this.prisma.utilisateur.update({
+      where: { id: userId },
+      data: { profil: profilValide },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        role: true,
+        statut_compte: true,
+        url_avatar: true,
+        profil: true,
+        cree_le: true,
+        maj_le: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async majAvatar(userId: string, urlAvatar: string) {
+    const updated = await this.prisma.utilisateur.update({
+      where: { id: userId },
+      data: { url_avatar: urlAvatar },
+      select: {
+        id: true,
+        url_avatar: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async getProfilPublic(userId: string) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        role: true,
+        url_avatar: true,
+        profil: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    // Profil public : tout est visible selon la demande utilisateur
+    return {
+      id: user.id,
+      prenom: user.prenom,
+      nom: user.nom,
+      role: user.role,
+      url_avatar: user.url_avatar,
+      profil: user.profil,
+    };
+  }
+
+  private validerProfilSelonRole(role: string, profil: any) {
+    if (!profil) return {};
+
+    try {
+      switch (role) {
+        case 'ENTREPRENEUR':
+          return ProfilEntrepreneurSchema.parse(profil);
+        case 'MENTOR':
+          return ProfilMentorSchema.parse(profil);
+        case 'INVESTISSEUR':
+          return ProfilInvestisseurSchema.parse(profil);
+        default:
+          return profil;
+      }
+    } catch (error) {
+      // Validation permissive : en cas d'erreur, retourner les données nettoyées
+      // Utilisation du logger NestJS pour la surveillance
+      this.logger.warn(`Échec de la validation stricte pour le rôle ${role}. Application du nettoyage permissif. Détails: ${error}`);
+      return this.nettoyerProfil(role, profil);
+    }
+  }
+
+  private nettoyerProfil(role: string, profil: any) {
+    // Nettoyage basique selon le rôle
+    const nettoye: any = {};
+
+    switch (role) {
+      case 'ENTREPRENEUR':
+        if (profil.telephone) nettoye.telephone = String(profil.telephone);
+        if (profil.ville) nettoye.ville = String(profil.ville);
+        if (profil.region) nettoye.region = String(profil.region);
+        if (profil.bio) nettoye.bio = String(profil.bio).slice(0, 500);
+        if (profil.secteur_activite) nettoye.secteur_activite = String(profil.secteur_activite);
+        if (profil.parcours) nettoye.parcours = String(profil.parcours).slice(0, 1000);
+        if (profil.linkedin_url) nettoye.linkedin_url = String(profil.linkedin_url);
+        if (profil.type_cible && ['B2C', 'B2B', 'B2B2C'].includes(profil.type_cible)) {
+          nettoye.type_cible = profil.type_cible;
+        }
+        break;
+
+      case 'MENTOR':
+        if (profil.telephone) nettoye.telephone = String(profil.telephone);
+        if (profil.ville) nettoye.ville = String(profil.ville);
+        if (profil.region) nettoye.region = String(profil.region);
+        if (profil.bio) nettoye.bio = String(profil.bio).slice(0, 500);
+        if (Array.isArray(profil.domaines_expertise)) {
+          nettoye.domaines_expertise = profil.domaines_expertise.map(String);
+        }
+        if (profil.annees_experience) nettoye.annees_experience = Number(profil.annees_experience);
+        if (profil.linkedin_url) nettoye.linkedin_url = String(profil.linkedin_url);
+        if (typeof profil.disponible === 'boolean') {
+          nettoye.disponible = profil.disponible;
+        }
+        break;
+
+      case 'INVESTISSEUR':
+        if (profil.telephone) nettoye.telephone = String(profil.telephone);
+        if (profil.ville) nettoye.ville = String(profil.ville);
+        if (profil.region) nettoye.region = String(profil.region);
+        if (profil.bio) nettoye.bio = String(profil.bio).slice(0, 500);
+        if (profil.sous_type) nettoye.sous_type = profil.sous_type;
+        if (Array.isArray(profil.domaines_interet)) {
+          nettoye.domaines_interet = profil.domaines_interet.map(String);
+        }
+        if (profil.budget_min_ar) nettoye.budget_min_ar = Number(profil.budget_min_ar);
+        if (profil.budget_max_ar) nettoye.budget_max_ar = Number(profil.budget_max_ar);
+        if (profil.linkedin_url) nettoye.linkedin_url = String(profil.linkedin_url);
+        if (profil.site_web) nettoye.site_web = String(profil.site_web);
+        break;
+
+      default:
+        return profil;
+    }
+
+    return nettoye;
+  }
+}
+
+================
+File: src/app.controller.ts
+================
+import { Controller, Get, Post, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { AppService } from './app.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @Post('upload/avatar')
+  @UseInterceptors(FileInterceptor('avatar', {
+    storage: diskStorage({
+      destination: './uploads/avatars',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+        return cb(new BadRequestException('Seuls les fichiers images sont autorisés!'), false);
+      }
+      cb(null, true);
+    },
+    limits: {
+      fileSize: 2 * 1024 * 1024, // 2MB
+    }
+  }))
+  uploadAvatar(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier uploadé');
+    }
+    // Return the URL to access the file
+    // Assumes backend is running on localhost:3000
+    // If BASE_URL is needed, consider returning just the relative path
+    // and let frontend prepend its VITE_BASE_URL
+    return {
+      url: `/uploads/avatars/${file.filename}`,
+      message: 'Avatar uploadé avec succès'
+    };
+  }
+}
+
+================
+File: src/auth/auth.module.ts
+================
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import {JwtModule} from "@nestjs/jwt"
+import { JwtStrategy } from './jwt.strategy';
+import { JwtRefreshStrategy } from './jwt-refresh.strategy';
+import { PassportModule } from '@nestjs/passport';
+
+
+@Module({
+  imports:[PrismaModule,PassportModule,JwtModule.registerAsync({
+  global: true,
+  useFactory: async () => ({
+    secret: process.env.JWT_ACCESS_SECRET,
+    signOptions: { expiresIn: '15m' },
+  }),
+}),],
+  controllers: [AuthController],
+  providers: [AuthService,JwtStrategy, JwtRefreshStrategy]
+})
+export class AuthModule {}
+
+================
+File: src/auth/jwt.strategy.ts
+================
+import { ExtractJwt, Strategy,StrategyOptions } from 'passport-jwt';
+import { PassportStrategy } from '@nestjs/passport';
+import { Injectable } from '@nestjs/common';
+import {PayloadDto} from '@matura/shared'
+
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor() {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey:process.env.JWT_ACCESS_SECRET as string,
+    });
+  }
+
+  async validate(payload:PayloadDto) {
+      // console.log("- - - - PAYLOAD - - - - ")
+      // console.log(payload)
+    return {payload};
+  }
+}
+
+================
+File: src/auth/roles.decorator.ts
+================
+// roles.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+// import { ClientRole } from './roles.enum';
+import {RoleUtilisateur} from "@matura/shared"
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: RoleUtilisateur []) => SetMetadata(ROLES_KEY, roles);
+
+================
+File: src/projet/projet.controller.ts
+================
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Req,
+  Query,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { Roles } from '../auth/roles.decorator'
+import { RolesGuard } from '../auth/roles.guard'
+import { ProjetService } from './projet.service'
+import { type CreationProjetDto } from '@matura/shared'
+import { StatutProjet } from '@prisma/client'
+
+interface RequestWithUser extends Request {
+  user: {
+    payload: {
+      id: string
+      email: string
+      role: string
+    }
+  }
+}
+
+@Controller('projets')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class ProjetController {
+  constructor(private readonly projetService: ProjetService) {}
+
+  /**
+   * POST /api/projets
+   * Crée un nouveau projet
+   * Accessible : ENTREPRENEUR uniquement
+   */
+  @Post()
+  @Roles('ENTREPRENEUR')
+  @HttpCode(HttpStatus.CREATED)
+  async creerProjet(
+    @Body() dto: CreationProjetDto,
+    @Req() req: RequestWithUser,
+  ) {
+        // console.log("Entre dans le controlller - - - - - - - - -");
+        // console.log(req.user.payload);
+    const projet = await this.projetService.creerProjet(dto, req.user.payload.id);
+    return projet
+  }
+
+  /**
+   * GET /api/projets/mes-projets
+   * Liste les projets de l'entrepreneur connecté
+   * Accessible : ENTREPRENEUR uniquement
+   */
+  @Get('mes-projets')
+  @Roles('ENTREPRENEUR')
+  async getMesProjets(
+    @Req() req: RequestWithUser,
+    @Query('statut') statut?: string,
+    @Query('page') page?: string,
+    @Query('limite') limite?: string,
+  ) {
+    const filters = {
+      statut: statut as StatutProjet | undefined,
+      page: page ? parseInt(page, 10) : undefined,
+      limite: limite ? parseInt(limite, 10) : undefined,
+    }
+    // console.log("- - - - - - - -  - - - - - - - - - ")
+    // console.log("Entrer dans le controller")
+    return this.projetService.getMesProjets(req.user.payload.id, filters)
+  }
+
+  /**
+   * GET /api/projets/:id
+   * Détail complet d'un projet
+   * Accessible : Propriétaire | Mentor assigné | Admin
+   */
+  @Get(':id')
+  async getProjetDetail(
+    @Param('id') projetId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.projetService.getProjetDetail(
+      projetId,
+      req.user.payload.id,
+      req.user.payload.role,
+    )
+  }
+}
+
+================
+File: src/projet/projet.module.ts
+================
+import { Module } from '@nestjs/common'
+import { ProjetController } from './projet.controller'
+import { ProjetService } from './projet.service'
+import { PrismaModule } from '../prisma/prisma.module'
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [ProjetController],
+  providers: [ProjetService],
+  exports: [ProjetService],
+})
+export class ProjetModule {}
+
+================
+File: src/projet/projet.service.ts
+================
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreationProjetDto, ProjetResume, ProjetDetail,TypeCible } from '@matura/shared'
+import { Prisma, StatutProjet, StatutStade, TypeStade } from '@prisma/client'
+import { log } from 'console'
+
+@Injectable()
+export class ProjetService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Crée un nouveau projet avec initialisation automatique :
+   * - 7 stades (STADE_1 = DEBLOQUE, autres = VERROUILLE)
+   * - ScoreProjet (tous scores à 0)
+   * - FinancesProjet (vide)
+   * - brl_actuel = 0
+   * - statut = BROUILLON
+   */
+  async creerProjet(
+    dto: CreationProjetDto,
+    proprietaireId: string,
+  ): Promise<ProjetDetail|any> {
+    // Créer le projet avec les 7 stades et le score en une seule transaction
+      // console.log("#######################################################")
+      // console.log(proprietaireId);  
+    const projet = await this.prisma.$transaction(async (tx) => {
+      // 1. Créer le projet
+
+      const nouveauProjet = await tx.projet.create({
+        data: {
+          titre: dto.titre,
+          description: dto.description,
+          domaine: dto.domaine,
+          secteur: dto.secteur,
+          region: dto.region,
+          type_cible: dto.type_cible,
+          statut: StatutProjet.BROUILLON,
+          brl_actuel: 0,
+          est_public: false,
+          proprietaire_id: proprietaireId,
+        },
+      })
+
+      // 2. Initialiser les 7 stades
+      const stadesData: Prisma.StadeCreateManyInput[] = [
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_1_EMERGENCE,
+          statut: StatutStade.DEBLOQUE, // Stade 1 débloqué d'office
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_2_IDEATION,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_3_MARCHE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_4_BMC,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_5_FAISABILITE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_6_PROTOTYPE,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+        {
+          projet_id: nouveauProjet.id,
+          type: TypeStade.STADE_7_LANCEMENT,
+          statut: StatutStade.VERROUILLE,
+          donnees: {},
+          version: 1,
+        },
+      ]
+
+      await tx.stade.createMany({ data: stadesData })
+
+      // 3. Initialiser le score MCDA (tous à 0)
+      await tx.scoreProjet.create({
+        data: {
+          projet_id: nouveauProjet.id,
+          score_stade_1: 0,
+          score_stade_2: 0,
+          score_stade_3: 0,
+          score_stade_4: 0,
+          score_stade_5: 0,
+          score_stade_6: 0,
+          score_stade_7: 0,
+          score_global: 0,
+          score_innovation: 0,
+          score_marche: 0,
+          score_equipe: 0,
+          score_finance: 0,
+          score_execution: 0,
+        },
+      })
+
+      return nouveauProjet
+    })
+
+    // 4. Retourner le projet complet avec les stades
+    return this.getProjetDetail(projet.id, proprietaireId)
+  }
+
+  /**
+   * Liste les projets de l'entrepreneur connecté
+   * Avec pagination et filtres optionnels
+   */
+  async getMesProjets(
+    proprietaireId: string,
+    filters?: {
+      statut?: StatutProjet
+      page?: number
+      limite?: number
+    },
+  ): Promise<{
+    projets: ProjetResume[]
+    total: number
+    page: number
+    pages: number
+  }> {
+    const page = filters?.page || 1
+    const limite = Math.min(filters?.limite || 20, 100)
+    const skip = (page - 1) * limite
+
+    const where: Prisma.ProjetWhereInput = {
+      proprietaire_id: proprietaireId,
+      ...(filters?.statut && { statut: filters.statut }),
+    }
+
+    const [projets, total] = await Promise.all([
+      this.prisma.projet.findMany({
+        where,
+        skip,
+        take: limite,
+        orderBy: { maj_le: 'desc' },
+        include: {
+          mentor: {
+            select: { id: true, prenom: true, nom: true },
+          },
+          stades: {
+            select: {
+              type: true,
+              statut: true,
+              score_auto: true,
+            },
+          },
+          score: {
+            select: { score_global: true },
+          },
+        },
+      }),
+      this.prisma.projet.count({ where }),
+    ])
+
+    // Mapper vers ProjetResume
+    const projetsResume: ProjetResume[] = projets.map((p) => {
+      // Trouver le stade actif (le premier non VERROUILLE en ordre)
+      const stadeActif = p.stades.find(
+        (s) => s.statut !== StatutStade.VERROUILLE,
+      )
+
+      // Calculer numero et completion_pct du stade actif
+      let stadeActifData: any = null
+      if (stadeActif) {
+        const numero = this.getNumeroFromType(stadeActif.type)
+        const completion_pct = this.calculerCompletionStade(stadeActif)
+
+        stadeActifData = {
+          type: stadeActif.type,
+          numero,
+          statut: stadeActif.statut,
+          completion_pct,
+        }
+      }
+
+      return {
+        id: p.id,
+        titre: p.titre,
+        domaine: p.domaine,
+        secteur: p.secteur,
+        region: p.region,
+        type_cible: p.type_cible as TypeCible,
+        statut: p.statut,
+        brl_actuel: p.brl_actuel,
+        est_public: p.est_public,
+        cree_le: p.cree_le.toISOString(),
+        maj_le: p.maj_le.toISOString(),
+        stade_actif: stadeActifData,
+        mentor: p.mentor
+          ? {
+              id: p.mentor.id,
+              prenom: p.mentor.prenom,
+              nom: p.mentor.nom,
+            }
+          : null,
+        score_global: p.score?.score_global ?? null,
+      }
+    })
+
+    return {
+      projets: projetsResume,
+      total,
+      page,
+      pages: Math.ceil(total / limite),
+    }
+  }
+
+  /**
+   * Récupère le détail complet d'un projet
+   * Accessible par : propriétaire, mentor assigné, admin
+   */
+  async getProjetDetail(
+    projetId: string,
+    userId: string,
+    userRole?: string,
+  ): Promise<ProjetDetail> {
+    const projet = await this.prisma.projet.findUnique({
+      where: { id: projetId },
+      include: {
+        proprietaire: {
+          select: { id: true, prenom: true, nom: true },
+        },
+        mentor: {
+          select: { id: true, prenom: true, nom: true },
+        },
+        stades: {
+          select: {
+            id: true,
+            type: true,
+            statut: true,
+            score_auto: true,
+            commence_le: true,
+            soumis_le: true,
+            valide_le: true,
+          },
+          orderBy: { type: 'asc' },
+        },
+        score: true, // On récupère tout l'objet score
+      },
+    })
+
+    if (!projet) {
+      throw new NotFoundException('Projet introuvable')
+    }
+
+    // Vérifier les droits d'accès
+    const isProprietaire = projet.proprietaire_id === userId
+    const isMentor = projet.mentor_id === userId
+    const isAdmin = userRole === 'ADMIN'
+
+    if (!isProprietaire && !isMentor && !isAdmin) {
+      throw new ForbiddenException('Accès refusé à ce projet')
+    }
+
+    // Mapper vers ProjetDetail
+    const stadeActif = projet.stades.find(
+      (s) => s.statut !== StatutStade.VERROUILLE,
+    )
+
+    return {
+      id: projet.id,
+      titre: projet.titre,
+      description: projet.description,
+      domaine: projet.domaine,
+      secteur: projet.secteur,
+      region: projet.region,
+      type_cible: projet.type_cible as TypeCible,
+      statut: projet.statut,
+      brl_actuel: projet.brl_actuel,
+      est_public: projet.est_public,
+      cree_le: projet.cree_le.toISOString(),
+      maj_le: projet.maj_le.toISOString(),
+      stade_actif: stadeActif
+        ? {
+            type: stadeActif.type,
+            numero: this.getNumeroFromType(stadeActif.type),
+            statut: stadeActif.statut,
+            completion_pct: 0, // Calculé plus tard selon les données
+          }
+        : null,
+      proprietaire: {
+        id: projet.proprietaire.id,
+        prenom: projet.proprietaire.prenom,
+        nom: projet.proprietaire.nom,
+      },
+      mentor: projet.mentor
+        ? {
+            id: projet.mentor.id,
+            prenom: projet.mentor.prenom,
+            nom: projet.mentor.nom,
+          }
+        : null,
+      stades: projet.stades.map((s) => ({
+        id: s.id,
+        type: s.type,
+        numero: this.getNumeroFromType(s.type),
+        statut: s.statut,
+        score_auto: s.score_auto,
+        completion_pct: 0, // Calculé plus tard
+        commence_le: s.commence_le?.toISOString() || null,
+        soumis_le: s.soumis_le?.toISOString() || null,
+        valide_le: s.valide_le?.toISOString() || null,
+      })),
+      score_global: projet.score?.score_global ?? null,
+      score: projet.score
+        ? {
+            score_global: projet.score.score_global,
+            score_innovation: projet.score.score_innovation,
+            score_marche: projet.score.score_marche,
+            score_equipe: projet.score.score_equipe,
+            score_finance: projet.score.score_finance,
+            score_execution: projet.score.score_execution,
+          }
+        : null,
+    }
+  }
+
+  /**
+   * Helpers privés
+   */
+  private getNumeroFromType(type: TypeStade): number {
+    const mapping: Record<TypeStade, number> = {
+      STADE_1_EMERGENCE: 1,
+      STADE_2_IDEATION: 2,
+      STADE_3_MARCHE: 3,
+      STADE_4_BMC: 4,
+      STADE_5_FAISABILITE: 5,
+      STADE_6_PROTOTYPE: 6,
+      STADE_7_LANCEMENT: 7,
+    }
+    return mapping[type] || 0
+  }
+
+  private calculerCompletionStade(stade: any): number {
+    // TODO: Implémenter le calcul réel selon les données du stade
+    // Pour l'instant retourne 0
+    return 0
+  }
+}
+
+================
+File: src/stades/stades.controller.ts
+================
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { RolesGuard } from '../auth/roles.guard'
+import { StadesService } from './stades.service'
+
+// Pattern cohérent avec projet.controller.ts existant
+interface RequestWithUser extends Request {
+  user: {
+    payload: {
+      id: string
+      email: string
+      role: string
+    }
+  }
+}
+
+@Controller('projets/:projetId/stades')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class StadesController {
+  constructor(private readonly stadesService: StadesService) {}
+
+  // GET /projets/:projetId/stades/:num
+  @Get(':num')
+  getStade(
+    @Param('projetId') projetId: string,
+    @Param('num', ParseIntPipe) num: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.stadesService.getStade(projetId, num, req.user.payload.id, req.user.payload.role)
+  }
+
+  // PUT /projets/:projetId/stades/:num
+  @Put(':num')
+  enregistrerStade(
+    @Param('projetId') projetId: string,
+    @Param('num', ParseIntPipe) num: number,
+    @Req() req: RequestWithUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    console.log("CHANDLER ATTEINT")
+    return this.stadesService.enregistrerStade(projetId, num, req.user.payload.id, body)
+  }
+
+  // GET /projets/:projetId/stades/:num/verifier-gate
+  @Get(':num/verifier-gate')
+  verifierGate(
+    @Param('projetId') projetId: string,
+    @Param('num', ParseIntPipe) num: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.stadesService.verifierGateStade(projetId, num, req.user.payload.id)
+  }
+
+  // POST /projets/:projetId/stades/:num/soumettre
+  @Post(':num/soumettre')
+  @HttpCode(HttpStatus.OK)
+  soumettre(
+    @Param('projetId') projetId: string,
+    @Param('num', ParseIntPipe) num: number,
+    @Req() req: RequestWithUser,
+  ) {
+    console.log("arriver dans le controller de soumission")
+    return this.stadesService.soumettreStade(projetId, num, req.user.payload.id)
+  }
+
+  // POST /projets/:projetId/stades/:num/evaluations
+  @Post(':num/evaluations')
+  @HttpCode(HttpStatus.CREATED)
+  evaluer(
+    @Param('projetId') projetId: string,
+    @Param('num', ParseIntPipe) num: number,
+    @Req() req: RequestWithUser,
+    @Body()
+    body: {
+      note: number
+      commentaire: string
+      criteres: Record<string, number>
+      decision: 'VALIDE' | 'RENVOYE'
+      motif_renvoi?: string
+    },
+  ) {
+    return this.stadesService.evaluerStade(projetId, num, req.user.payload.id, body)
+  }
+}
+
+// GET /projets/:projetId/evaluations (historique)
+@Controller('projets/:projetId/evaluations')
+@UseGuards(JwtAuthGuard)
+export class EvaluationsController {
+  constructor(private readonly stadesService: StadesService) {}
+
+  @Get()
+  getEvaluations(
+    @Param('projetId') projetId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.stadesService.getEvaluations(projetId, req.user.payload.id, req.user.payload.role)
+  }
+}
+
+================
+File: src/stades/stades.module.ts
+================
+// src/stades/stades.module.ts
+// Déclare tous les Engines comme providers NestJS
+// Importe GeoModule pour injecter GeoService dans Stade1Engine
+
+import { Module } from '@nestjs/common'
+import { StadesController, EvaluationsController } from './stades.controller'
+import { StadesService } from './stades.service'
+import { PrismaModule } from '../prisma/prisma.module'
+import { GeoModule } from '../geo/geo.module'
+
+// Engines
+import { Stade1Engine } from './engines/stade1.engine'
+import { Stade2Engine } from './engines/stade2.engine'
+import { Stade3Engine } from './engines/stade3.engine'
+import { Stade4Engine } from './engines/stade4.engine'
+import { Stade5Engine } from './engines/stade5.engine'
+import { Stade6Engine } from './engines/stade6.engine'
+import { Stade7Engine } from './engines/stade7.engine'
+
+@Module({
+  imports: [
+    PrismaModule,
+    GeoModule, // Nécessaire pour Stade1Engine qui injecte GeoService
+  ],
+  controllers: [StadesController, EvaluationsController],
+  providers: [
+    StadesService,
+    Stade1Engine,
+    Stade2Engine,
+    Stade3Engine,
+    Stade4Engine,
+    Stade5Engine,
+    Stade6Engine,
+    Stade7Engine,
+  ],
+  exports: [StadesService],
+})
+export class StadesModule {}
+
+================
+File: src/stades/stades.service.ts
+================
+// src/stades/stades.service.ts
+// ORCHESTRATEUR — Pattern Stratégie (ARCHITECTURE_TECHNIQUE_STADES.md)
+//
+// Ce service ne contient PLUS aucune logique de calcul métier.
+// Il délègue :
+//   • calculerMetriques() → Engine du stade concerné
+//   • verifierGate()      → Engine du stade concerné
+// Et conserve uniquement :
+//   • CRUD Prisma (lecture, écriture, historique)
+//   • Contrôle d'accès (propriétaire, mentor, admin)
+//   • Orchestration des transitions de statut (BROUILLON → SOUMIS → VALIDE)
+//   • Évaluation Mentor (evaluerStade, getEvaluations)
+
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { TypeStade, StatutStade, StatutProjet } from '@prisma/client'
+import { GateResult } from './types'
+
+// Engines
+import { Stade1Engine } from './engines/stade1.engine'
+import { Stade2Engine } from './engines/stade2.engine'
+import { Stade3Engine } from './engines/stade3.engine'
+import { Stade4Engine } from './engines/stade4.engine'
+import { Stade5Engine } from './engines/stade5.engine'
+import { Stade6Engine } from './engines/stade6.engine'
+import { Stade7Engine } from './engines/stade7.engine'
+
+// Imports de types shared — garantissent le typage strict
+import {
+  DonneesStade1, MetriquesStade1,
+  DonneesStade2, MetriquesStade2,
+  DonneesStade3, MetriquesStade3,
+  DonneesStade4, MetriquesStade4,
+  DonneesStade5, MetriquesStade5,
+  DonneesStade6, MetriquesStade6,
+  DonneesStade7,
+} from '@matura/shared'
+
+// ─── MAPPING TYPE ↔ NUMÉRO ────────────────────────────────────────────────────
+
+const NUM_TO_TYPE: Record<number, TypeStade> = {
+  1: TypeStade.STADE_1_EMERGENCE,
+  2: TypeStade.STADE_2_IDEATION,
+  3: TypeStade.STADE_3_MARCHE,
+  4: TypeStade.STADE_4_BMC,
+  5: TypeStade.STADE_5_FAISABILITE,
+  6: TypeStade.STADE_6_PROTOTYPE,
+  7: TypeStade.STADE_7_LANCEMENT,
+}
+
+// ─── CALCUL COMPLÉTION (visuel, non bloquant) ────────────────────────────────
+// Vérifie simplement si les clés principales sont présentes dans les données
+
+function calculerCompletion(donnees: Record<string, unknown>, num: number): number {
+  const champs: Record<number, string[]> = {
+    1: ['enonce_probleme', 'profil_affecte', 'intensite_probleme', 'observations_terrain', 'solutions_existantes', 'contexte_geographique'],
+    2: ['bloc_probleme', 'bloc_segments_clients', 'bloc_solution', 'bloc_proposition_valeur', 'bloc_canaux', 'bloc_sources_revenus', 'bloc_structure_couts'],
+    3: ['taille_marche', 'enquete', 'concurrents', 'positionnement_prix', 'sources_marche'],
+    4: ['evolution_lean_canvas', 'propositions_valeur', 'segments_clients', 'canaux', 'ressources_cles', 'activites_cles', 'partenaires_cles', 'structure_couts', 'sources_revenus'],
+    5: ['disciplines_requises_projet', 'membres_equipe', 'finances', 'jalons'],
+    6: ['mvp', 'retours_clients', 'metriques_usage', 'iterations'],
+    7: ['resume_executif', 'demande_financement', 'contexte_investisseur'],
+  }
+  const liste = champs[num] ?? []
+  if (!liste.length) return 0
+  const remplis = liste.filter((c) => {
+    const v = donnees[c]
+    return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
+  }).length
+  return Math.round((remplis / liste.length) * 100)
+}
+
+// ─── SERVICE ORCHESTRATEUR ────────────────────────────────────────────────────
+
+@Injectable()
+export class StadesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s1: Stade1Engine,
+    private readonly s2: Stade2Engine,
+    private readonly s3: Stade3Engine,
+    private readonly s4: Stade4Engine,
+    private readonly s5: Stade5Engine,
+    private readonly s6: Stade6Engine,
+    private readonly s7: Stade7Engine,
+  ) {}
+
+  // ── Sélection du bon moteur selon le numéro de stade ──────────────────────
+  // Note : le type de retour est intentionnellement permissif ici car l'orchestrateur
+  // est agnostique des types spécifiques. La sécurité de type est garantie à l'intérieur
+  // de chaque Engine (IStadeEngine<TDonnees, TMetriques>).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getEngine(num: number): any {
+    const map: Record<number, unknown> = {
+      1: this.s1,
+      2: this.s2,
+      3: this.s3,
+      4: this.s4,
+      5: this.s5,
+      6: this.s6,
+      7: this.s7,
+    }
+    const engine = map[num]
+    if (!engine) throw new BadRequestException(`ENGINE_NON_IMPLEMENTE: Stade ${num}`)
+    return engine
+  }
+
+  // ── Helper : Récupérer un stade avec vérification d'accès ─────────────────
+  private async _getStade(projetId: string, numStade: number, userId: string, roleUser?: string) {
+    const projet = await this.prisma.projet.findUnique({
+      where: { id: projetId },
+      include: { stades: { where: { type: NUM_TO_TYPE[numStade] } } },
+    })
+    if (!projet) throw new NotFoundException('PROJET_INTROUVABLE')
+
+    const isProprietaire = projet.proprietaire_id === userId
+    const isMentor = projet.mentor_id === userId
+    const isAdmin = roleUser === 'ADMIN'
+
+    if (!isProprietaire && !isMentor && !isAdmin) throw new ForbiddenException('NON_AUTORISE')
+
+    const stade = projet.stades[0]
+    if (!stade) throw new NotFoundException('STADE_INTROUVABLE')
+
+    return { projet, stade, isProprietaire, isMentor }
+  }
+
+  // ─── GET STADE ──────────────────────────────────────────────────────────────
+
+  async getStade(projetId: string, numStade: number, userId: string, roleUser?: string) {
+    const { stade } = await this._getStade(projetId, numStade, userId, roleUser)
+    const donnees = (stade.donnees ?? {}) as Record<string, unknown>
+    const completion_pct = calculerCompletion(donnees, numStade)
+
+    // Délégation au moteur pour les métriques
+    const engine = this.getEngine(numStade)
+    const metriques = await engine.calculerMetriques(donnees)
+
+    const alertes = await this.prisma.alerteProjet.findMany({
+      where: { projet_id: projetId, stade_type: NUM_TO_TYPE[numStade] },
+    })
+
+    return {
+      id: stade.id,
+      projet_id: projetId,
+      type: stade.type,
+      numero: numStade,
+      statut: stade.statut,
+      donnees,
+      metriques,
+      version: stade.version,
+      score_auto: stade.score_auto,
+      completion_pct,
+      alertes: alertes.map((a) => ({
+        code: a.code,
+        niveau: a.niveau,
+        message: a.message,
+        resolue: a.resolue,
+      })),
+      commence_le: stade.commence_le?.toISOString() ?? null,
+      soumis_le: stade.soumis_le?.toISOString() ?? null,
+      valide_le: stade.valide_le?.toISOString() ?? null,
+      maj_le: stade.maj_le.toISOString(),
+      calculs_informatifs: stade.calculs_informatifs,
+    }
+  }
+
+  // ─── PUT STADE (enregistrement brouillon) ────────────────────────────────────
+
+  async enregistrerStade(
+    projetId: string,
+    numStade: number,
+    userId: string,
+    payload: Record<string, unknown>,
+  ) {
+
+    // console.log("ARRIVER DANS LE SERVICES")
+    const { stade, projet, isProprietaire } = await this._getStade(projetId, numStade, userId)
+
+    if (!isProprietaire) throw new ForbiddenException('SEUL_LE_PROPRIETAIRE_PEUT_MODIFIER')
+
+    const statuts_modifiables: StatutStade[] = [
+      StatutStade.BROUILLON,
+      StatutStade.EN_REVISION,
+      StatutStade.DEBLOQUE,
+    ]
+    // console.log(statuts_modifiables)
+    // console.log(stade.statut)
+    // console.log(!statuts_modifiables.includes(stade.statut))
+    if (!statuts_modifiables.includes(stade.statut)) {
+      // console.log("ARRIVER DANS LE SERVICES2")
+      throw new BadRequestException(`STADE_NON_MODIFIABLE: statut=${stade.statut}`)
+    }
+
+    // Extraction des calculs informatifs
+    const calculs_informatifs = payload.calculs_informatifs;
+    const donnees = { ...payload };
+    delete donnees.calculs_informatifs;
+
+    // Délégation des calculs et validation au moteur du stade
+    const engine = this.getEngine(numStade)
+    const metriques = await engine.calculerMetriques(donnees)
+    const gate: GateResult = engine.verifierGate(donnees, metriques)
+    const completion_pct = calculerCompletion(donnees, numStade)
+
+    // Historique versionné
+    const historique = Array.isArray(stade.historique) ? stade.historique : []
+    const snapshot = {
+      version: stade.version,
+      donnees: stade.donnees,
+      enregistre_le: new Date().toISOString(),
+    }
+
+    const nouveauStatut =
+      stade.statut === StatutStade.DEBLOQUE ? StatutStade.BROUILLON : stade.statut
+    const donneesAvecMetriques = { ...donnees, _metriques: metriques }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.stade.update({
+        where: { id: stade.id },
+        data: {
+          donnees: donneesAvecMetriques as never,
+          statut: nouveauStatut,
+          version: { increment: 1 },
+          historique: [...historique, snapshot] as never[],
+          commence_le: stade.commence_le ?? new Date(),
+          ...(calculs_informatifs !== undefined && { calculs_informatifs: calculs_informatifs as any }),
+        },
+      })
+
+      // Mise à jour des alertes actives
+      await tx.alerteProjet.deleteMany({
+        where: { projet_id: projetId, stade_type: NUM_TO_TYPE[numStade] },
+      })
+      if (gate.alertes_critiques.length > 0) {
+        await tx.alerteProjet.createMany({
+          data: gate.alertes_critiques.map((a) => ({
+            projet_id: projetId,
+            stade_type: NUM_TO_TYPE[numStade],
+            code: a.code,
+            niveau: a.niveau,
+            message: a.message,
+          })),
+        })
+      }
+
+      // Transition projet BROUILLON → EN_COURS au premier enregistrement
+      if (projet.statut === StatutProjet.BROUILLON) {
+        await tx.projet.update({
+          where: { id: projetId },
+          data: { statut: StatutProjet.EN_COURS },
+        })
+      }
+
+      // S5 spécifique : synchronisation table FinancesProjet
+      if (numStade === 5) {
+        const m = metriques as MetriquesStade5
+        const finances = (donnees.finances ?? {}) as DonneesStade5['finances']
+        if (m.point_mort_unites !== undefined) {
+          const fData = {
+            charges_fixes: finances.charges_fixes ?? [],
+            charges_variables: finances.charges_variables ?? [],
+            prix_vente_ar: finances.prix_vente_ar ?? 0,
+            unites_projetees: finances.unites_projetees ?? { annee1: 0, annee2: 0, annee3: 0 },
+            investissement_initial: finances.investissement_initial_ar ?? 0,
+            besoin_financement: finances.besoin_financement_ar ?? 0,
+            type_financement: finances.type_financement ?? 'MIXTE',
+            point_mort_unites: m.point_mort_unites,
+            point_mort_revenus: m.point_mort_revenus,
+            ca_previsionnel: m.ca_previsionnel,
+            resultat_net: m.resultat_net,
+            roi: m.roi,
+          }
+          await tx.financesProjet.upsert({
+            where: { projet_id: projetId },
+            create: { projet_id: projetId, ...fData } as never,
+            update: fData as never,
+          })
+        }
+      }
+    })
+
+    return {
+      statut: nouveauStatut,
+      version: stade.version + 1,
+      completion_pct,
+      metriques,
+      alertes: gate.alertes_critiques,
+      maj_le: new Date().toISOString(),
+    }
+  }
+
+  // ─── GET GATE (vérification) ─────────────────────────────────────────────────
+
+  async verifierGateStade(projetId: string, numStade: number, userId: string): Promise<GateResult> {
+    const { stade } = await this._getStade(projetId, numStade, userId)
+    const donnees = (stade.donnees ?? {}) as Record<string, unknown>
+    const engine = this.getEngine(numStade)
+    const metriques = await engine.calculerMetriques(donnees)
+    return engine.verifierGate(donnees, metriques) as GateResult
+  }
+
+  // ─── SOUMETTRE (ENTREPRENEUR → Mentor) ───────────────────────────────────────
+
+  async soumettreStade(projetId: string, numStade: number, userId: string) {
+    const { stade, projet, isProprietaire } = await this._getStade(projetId, numStade, userId)
+
+    if (!isProprietaire) throw new ForbiddenException('SEUL_LE_PROPRIETAIRE_PEUT_SOUMETTRE')
+
+    const statuts_soumissibles: StatutStade[] = [StatutStade.BROUILLON, StatutStade.EN_REVISION]
+    if (!statuts_soumissibles.includes(stade.statut)) {
+      throw new BadRequestException(`STATUT_INVALIDE: ${stade.statut}`)
+    }
+
+    // Vérif stade précédent validé (sauf S1)
+    if (numStade > 1) {
+      const prec = await this.prisma.stade.findFirst({
+        where: { projet_id: projetId, type: NUM_TO_TYPE[numStade - 1] },
+      })
+      if (!prec || prec.statut!== StatutStade.VALIDE ) {
+        //
+        throw new UnprocessableEntityException({
+          message: 'Le stade précédent doit être validé',
+          code: 'STADE_PRECEDENT_NON_VALIDE',
+        })
+      }
+    }
+
+    // Vérification gate avant soumission
+    const donnees = (stade.donnees ?? {}) as Record<string, unknown>
+    const engine = this.getEngine(numStade)
+    const metriques = await engine.calculerMetriques(donnees)
+    const gate: GateResult = engine.verifierGate(donnees, metriques)
+
+    if (!gate.peut_soumettre) {
+      throw new UnprocessableEntityException({
+        message: 'Impossible de soumettre : conditions non remplies',
+        code: 'CONDITIONS_GATE_NON_REMPLIES',
+        details: {
+          conditions_manquantes: gate.conditions
+            .filter((c) => !c.valide)
+            .map((c) => `${c.libelle} (actuel: ${c.valeur_actuelle}, requis: ${c.valeur_requise})`),
+        },
+      })
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.stade.update({
+        where: { id: stade.id },
+        data: { statut: StatutStade.SOUMIS, soumis_le: new Date() },
+      })
+      await tx.projet.update({
+        where: { id: projetId },
+        data: { statut: StatutProjet.EN_EVALUATION },
+      })
+    })
+
+    return {
+      statut: 'SOUMIS',
+      soumis_le: new Date().toISOString(),
+      message: `Stade ${numStade} soumis. Votre mentor a été notifié.`,
+    }
+  }
+
+  // ─── ÉVALUER (MENTOR) ────────────────────────────────────────────────────────
+  // Logique conservée depuis featuresAdimin — inchangée car correcte
+
+  async evaluerStade(
+    projetId: string,
+    numStade: number,
+    mentorId: string,
+    dto: {
+      note: number
+      commentaire: string
+      criteres: Record<string, number>
+      decision: 'VALIDE' | 'RENVOYE'
+      motif_renvoi?: string
+    },
+  ) {
+    const { stade, projet } = await this._getStade(projetId, numStade, mentorId)
+
+    if (projet.mentor_id !== mentorId) throw new ForbiddenException('MENTOR_NON_ASSIGNE')
+    if (stade.statut !== StatutStade.SOUMIS) throw new BadRequestException('STADE_NON_SOUMIS')
+
+    let decision = dto.decision
+    // Règle métier : note < 40 → RENVOYE forcé
+    if (dto.note < 40) decision = 'RENVOYE'
+    if (decision === 'RENVOYE' && !dto.motif_renvoi) throw new BadRequestException('MOTIF_REQUIS')
+
+    const evaluation = await this.prisma.$transaction(async (tx) => {
+      const eval_ = await tx.evaluation.create({
+        data: {
+          stade_id: stade.id,
+          mentor_id: mentorId,
+          note: dto.note,
+          commentaire: dto.commentaire,
+          criteres: dto.criteres,
+          decision: decision as 'VALIDE' | 'RENVOYE',
+          motif_renvoi: dto.motif_renvoi ?? null,
+        },
+      })
+
+      const nouveauStatutStade = decision === 'VALIDE' ? StatutStade.VALIDE : StatutStade.EN_REVISION
+      await tx.stade.update({
+        where: { id: stade.id },
+        data: {
+          statut: nouveauStatutStade,
+          score_auto: dto.note,
+          valide_le: decision === 'VALIDE' ? new Date() : null,
+        },
+      })
+
+      if (decision === 'VALIDE') {
+        // Avancer le BRL (Niveau de Maturité)
+        await tx.projet.update({
+          where: { id: projetId },
+          data: { brl_actuel: numStade, statut: StatutProjet.EN_COURS },
+        })
+
+        const scoreActuel = await tx.scoreProjet.findUnique({ where: { projet_id: projetId } })
+        if (scoreActuel) {
+          const stadeScores = [
+            numStade === 1 ? dto.note : scoreActuel.score_stade_1,
+            numStade === 2 ? dto.note : scoreActuel.score_stade_2,
+            numStade === 3 ? dto.note : scoreActuel.score_stade_3,
+            numStade === 4 ? dto.note : scoreActuel.score_stade_4,
+            numStade === 5 ? dto.note : scoreActuel.score_stade_5,
+            numStade === 6 ? dto.note : scoreActuel.score_stade_6,
+            numStade === 7 ? dto.note : scoreActuel.score_stade_7,
+          ]
+          const scores_non_zero = stadeScores.filter((s) => s > 0)
+          const score_global =
+            scores_non_zero.length > 0
+              ? scores_non_zero.reduce((a, b) => a + b, 0) / scores_non_zero.length
+              : 0
+
+          const scoreField = `score_stade_${numStade}` as const
+          await tx.scoreProjet.update({
+            where: { projet_id: projetId },
+            data: {
+              [scoreField]: dto.note,
+              score_global,
+              score_innovation: (stadeScores[0] + stadeScores[1]) / 2,
+              score_marche: stadeScores[2],
+              score_equipe: stadeScores[4],
+              score_finance: (stadeScores[3] + stadeScores[4]) / 2,
+              score_execution: (stadeScores[5] + stadeScores[6]) / 2,
+            },
+          })
+
+          // Débloquer le stade suivant
+          if (numStade < 7) {
+            await tx.stade.updateMany({
+              where: { projet_id: projetId, type: NUM_TO_TYPE[numStade + 1] },
+              data: { statut: StatutStade.DEBLOQUE },
+            })
+          }
+
+          // Diplôme : BRL >= 6 ET score_global >= 65
+          if (numStade >= 6 && score_global >= 65) {
+            await tx.projet.update({
+              where: { id: projetId },
+              data: { statut: StatutProjet.DIPLOME, est_public: true },
+            })
+          }
+        }
+      } else {
+        await tx.projet.update({
+          where: { id: projetId },
+          data: { statut: StatutProjet.EN_COURS },
+        })
+      }
+
+      return eval_
+    })
+
+    return {
+      id: evaluation.id,
+      note: dto.note,
+      decision,
+      statut_stade: decision === 'VALIDE' ? 'VALIDE' : 'EN_REVISION',
+      brl_actuel: decision === 'VALIDE' ? numStade : projet.brl_actuel,
+      message: `Évaluation enregistrée. L'entrepreneur a été notifié.`,
+    }
+  }
+
+  // ─── GET HISTORIQUE ÉVALUATIONS ──────────────────────────────────────────────
+
+  async getEvaluations(projetId: string, userId: string, roleUser?: string) {
+    const projet = await this.prisma.projet.findUnique({ where: { id: projetId } })
+    if (!projet) throw new NotFoundException('PROJET_INTROUVABLE')
+
+    const allowed =
+      projet.proprietaire_id === userId ||
+      projet.mentor_id === userId ||
+      roleUser === 'ADMIN' ||
+      (roleUser === 'INVESTISSEUR' && projet.est_public)
+
+    if (!allowed) throw new ForbiddenException('NON_AUTORISE')
+
+    const evals = await this.prisma.evaluation.findMany({
+      where: { stade: { projet_id: projetId } },
+      include: { mentor: { select: { id: true, prenom: true, nom: true } } },
+      orderBy: { cree_le: 'desc' },
+    })
+
+    return evals.map((e) => ({
+      id: e.id,
+      stade_id: e.stade_id,
+      note: e.note,
+      commentaire: e.commentaire,
+      criteres: e.criteres,
+      decision: e.decision,
+      motif_renvoi: e.motif_renvoi,
+      cree_le: e.cree_le.toISOString(),
+      mentor: e.mentor,
+    }))
+  }
+}
+
+================
+File: src/auth/auth.controller.ts
+================
+import { Body, Controller, Post, HttpCode, 
+    HttpStatus,  UseGuards,
+    Res,Req,
+    Delete} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import {type InscriptionDto,type ConnexionDto,type AuthResponse} from "@matura/shared"
+import path from 'path';
+import { JwtRefreshAuthGuard } from './jwt-refresh.guard';
+import {Request,Response} from 'express'
+
+//   console.log(process.env.SECRET_KEY);
+
+@Controller('auth')
+export class AuthController {
+    
+    constructor(
+        private readonly authService: AuthService,
+      ) {}
+    
+    @Post("connexion")
+  async  singin (@Body() dto:ConnexionDto, @Res({passthrough:true}) res:Response):Promise<AuthResponse> {
+    // console.log("Avant le requete dans la db")  
+    const data=await this.authService.connexion(dto)  
+    // console.log("Apres le requete dans la db")  
+    res.cookie('refresh_token', data.refreshToken, {
+    httpOnly: true,     // Interdit l'accès via JavaScript (Sécurité !)
+    secure: true,       // Nécessite HTTPS (en prod)
+    sameSite: 'strict', // Empêche l'envoi du cookie sur d'autres sites (Anti-CSRF)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en millisecondes
+  });
+  return {
+    token: data.token,
+    utilisateur: data.utilisateur,
+    expire_dans: data.expire_dans,
+  };
+    }
+    
+    @Post("inscription")
+    async singup (@Body() dto:InscriptionDto, @Res({passthrough:true}) res:Response):Promise<AuthResponse> {
+        const data=await this.authService.inscription(dto)
+        
+    res.cookie('refresh_token', data.refreshToken, {
+    httpOnly: true,     // Interdit l'accès via JavaScript (Sécurité !)
+    secure: true,       // Nécessite HTTPS (en prod)
+    sameSite: 'strict', // Empêche l'envoi du cookie sur d'autres sites (Anti-CSRF)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en millisecondes
+  });
+  return {
+    token: data.token,
+    utilisateur: data.utilisateur,
+    expire_dans: data.expire_dans,
+  };
+}  
+    
+
+
+
+@Post("rafraichir")
+@UseGuards(JwtRefreshAuthGuard)
+async refresh(
+  @Req() req: Request, 
+  @Res({ passthrough: true }) res: Response
+): Promise<{token: string}> { // Utilise ton DTO de réponse (celui avec Zod ou une classe)
+
+  const userId = (req.user as { id: string }).id;
+  const oldRefreshToken = req.cookies['refresh_token'];
+
+  return this.authService.refreshToken(userId, oldRefreshToken);
+}
+
+@Delete("deconnexion")
+@UseGuards(JwtRefreshAuthGuard)
+async logout(
+  @Req() req: Request, 
+  @Res({ passthrough: true }) res: Response
+) {
+  const userId = (req.user as { id: string }).id;
+  await this.authService.deconnexion(userId);
+  
+  // Supprimer le cookie côté client
+  res.clearCookie('refresh_token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+  });
+
+  return { message: 'Déconnexion réussie' };
+}   
+}
+
+================
+File: src/auth/auth.service.ts
+================
+import { ForbiddenException, HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { InscriptionDto, ConnexionDto, UtilisateurPublic, AuthResponse, PayloadDto } from "@matura/shared";
+import * as bcrypt from 'bcrypt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import { RoleUtilisateur } from "@prisma/client"
+
+export type TypeToken = { token: string };
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+  ) { }
+
+  async inscription(dto: InscriptionDto) {
+    const hash = await bcrypt.hash(dto.password, 10);
+
+    try {
+      const existingUser = await this.prisma.utilisateur.findUnique({
+        where: { email: dto.email }
+      });
+
+      if (existingUser) {
+        throw new ForbiddenException('Email déjà pris');
+      }
+
+      const user = await this.prisma.utilisateur.create({
+        data: {
+          email: dto.email,
+          password: hash,
+          nom: dto.nom,
+          prenom: dto.prenom,
+          role: dto.role || RoleUtilisateur.ENTREPRENEUR,
+        }
+      });
+
+      const payload: PayloadDto = {
+        id: user.id,
+        email: user.email,
+        prenom: user.prenom,
+        role: user.role,
+      };
+
+      const signedToken = await this.signToken(payload);
+      const refreshToken = await this.signToken(
+        { id: user.id },
+        '7d',
+        process.env.JWT_REFRESH_SECRET,
+      );
+
+      // --- ENREGISTREMENT EN BASE ---
+      await this.saveRefreshToken(user.id, refreshToken);
+
+      const utilisateur: UtilisateurPublic = {
+        id: user.id,
+        prenom: user.prenom,
+        nom: user.nom,
+        email: user.email,
+        role: user.role,
+        statut_compte: user.statut_compte,
+        url_avatar: user.url_avatar,
+        cree_le: user.cree_le,
+      };
+
+      return {
+        token: signedToken,
+        refreshToken: refreshToken,
+        utilisateur: utilisateur,
+        expire_dans: 15 * 60,
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  async connexion(dto: ConnexionDto) {
+    try {
+      const user = await this.prisma.utilisateur.findUnique({
+        where: { email: dto.email },
+      });
+
+      if (user) {
+        const passwordMatch = await bcrypt.compare(dto.password, user.password);
+        if (!passwordMatch) throw new ForbiddenException('Mot de passe incorrect');
+
+        const payload: PayloadDto = {
+          id: user.id,
+          email: user.email,
+          prenom: user.prenom,
+          role: user.role,
+        };
+
+        const signedToken = await this.signToken(payload);
+        const refreshToken = await this.signToken(
+          { id: user.id },
+          '7d',
+          process.env.JWT_REFRESH_SECRET,
+        );
+
+        // --- ENREGISTREMENT EN BASE ---
+        await this.saveRefreshToken(user.id, refreshToken);
+
+        const utilisateur: UtilisateurPublic = {
+          id: user.id,
+          prenom: user.prenom,
+          nom: user.nom,
+          email: user.email,
+          role: user.role,
+          statut_compte: user.statut_compte,
+          url_avatar: user.url_avatar,
+          cree_le: user.cree_le,
+        };
+
+        return {
+          token: signedToken,
+          refreshToken: refreshToken,
+          utilisateur: utilisateur,
+          expire_dans: 15 * 60,
+        };
+      } else {
+        throw new ForbiddenException('Utilisateur introuvable');
+      }
+    } catch (error: any) {
+      if (error.code === 'P2002') throw new ForbiddenException('Erreur durant la connexion');
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(error.message, error.status || 500);
+    }
+  }
+
+ async deconnexion(userId: string) {
+    // Invalidation de tous les tokens de l'utilisateur
+    await this.prisma.tokenRefresh.updateMany({
+      where: { utilisateur_id: userId, invalide: false },
+      data: { invalide: true }
+    });
+    return { message: 'Déconnexion réussie' };
+  }    
+
+  /**
+   * Enregistre le refresh token hasché en base.
+   * On invalide les anciens tokens pour ce même utilisateur par sécurité.
+   */
+  async saveRefreshToken(userId: string, refreshToken: string) {
+    const hash = await bcrypt.hash(refreshToken, 10);
+    
+    // Invalidation des anciens tokens
+    await this.prisma.tokenRefresh.updateMany({
+      where: { utilisateur_id: userId, invalide: false },
+      data: { invalide: true }
+    });
+
+    // Création du nouveau token
+    await this.prisma.tokenRefresh.create({
+      data: {
+        token: hash,
+        utilisateur_id: userId,
+        expire_le: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+      }
+    });
+  }
+
+  async validateRefreshToken(userId: string, tokenFromCookie: string) {
+    // On cherche le dernier token valide pour cet utilisateur
+    const tokenRecord = await this.prisma.tokenRefresh.findFirst({
+      where: {
+        utilisateur_id: userId,
+        invalide: false,
+        expire_le: { gt: new Date() },
+      },
+      orderBy: { cree_le: 'desc' }
+    });
+
+    if (!tokenRecord || !(await bcrypt.compare(tokenFromCookie, tokenRecord.token))) {
+      throw new UnauthorizedException('Session expirée ou invalide');
+    }
+    return true;
+  }
+
+  async refreshToken(userId: string, tokenRefresh: string): Promise<TypeToken> {
+    // Vérification en base (haschage inclus)
+    await this.validateRefreshToken(userId, tokenRefresh);
+
+    const user = await this.prisma.utilisateur.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+
+    // Génération d'un nouvel Access Token avec le payload complet
+    const newAccessToken = await this.signToken({
+      id: user.id,
+      email: user.email,
+      prenom: user.prenom,
+      role: user.role,
+    });
+
+    return { token: newAccessToken };
+  }
+
+  signToken(payload: any, expiresIn?: string, secretKey?: string): string {
+    const options: JwtSignOptions = {
+      secret: secretKey || process.env.JWT_ACCESS_SECRET,
+    };
+
+    if (expiresIn) {
+      options.expiresIn = expiresIn as any;
+    }
+
+    return this.jwt.sign(payload, options);
+  }
+}
+
+================
+File: src/auth/roles.guard.ts
+================
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import {RoleUtilisateur} from "@matura/shared"
+import { ROLES_KEY } from './roles.decorator';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {} // Le Reflector lit les métadonnées
+
+  canActivate(context: ExecutionContext): boolean {
+    // 1. Récupérer les rôles définis sur la route via le décorateur @Roles
+    const requiredRoles = this.reflector.getAllAndOverride<RoleUtilisateur []>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // Si aucun rôle n'est requis, on laisse passer
+    if (!requiredRoles) {
+      return true;
+    }
+
+    // 2. Récupérer l'utilisateur depuis la requête (injecté par Passport)
+    const { user } = context.switchToHttp().getRequest();
+    // console.log("- - - - - - - -")
+    // console.log(`le role  requise est ${requiredRoles} le role de l'utilisateur :  ${user}`)
+    // console.log(user)
+    // console.log("- - - - - - - -")
+    return requiredRoles.some((role) => user.payload?.role?.includes(role));
+  }
+}
+
+================
+File: src/main.ts
+================
+import { ValidationPipe } from '@nestjs/common';
+
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import cookieParser from 'cookie-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableCors({
+    // 1. Remplace le '*' par l'URL exacte de ton front (Vite)
+    origin: 'http://localhost:5173', 
+    
+    // 2. Autorise impérativement l'envoi des cookies/headers d'auth
+    credentials: true,
+    
+    // 3. (Optionnel) Liste les méthodes autorisées
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+  });
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true, // Supprime les propriétés non décorées
+    forbidNonWhitelisted: true, // Erreur si des propriétés non autorisées sont envoyées
+    forbidUnknownValues:true,
+    
+  }));
+
+  app.use(cookieParser()); // Middleware pour parser les cookies
+  
+  // Serve static files from the 'uploads' folder
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
+
+  app.setGlobalPrefix('api'); // Ajoute un préfixe global pour toutes les routes (ex: /api)
+  await app.listen(3000);
+}
+bootstrap();
+
+================
+File: src/app.module.ts
+================
+import { Module } from '@nestjs/common';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { ProjetModule } from './projet/projet.module';
+import { StadesModule } from './stades/stades.module';
+import { GeoModule } from './geo/geo.module';
+import { AccompagnementModule } from './accompagnement/accompagnement.module';
+import { UtilisateurModule } from './utilisateur/utilisateur.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service'; 
+@Module({
+  controllers: [AppController],
+  providers: [AppService],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    ProjetModule,
+    StadesModule,
+    GeoModule,           // Endpoints /api/geo/* + GeoService exporté vers Stade1Engine
+    AccompagnementModule, // Endpoints /mentors, /demandes, /projets/:id/demandes
+    UtilisateurModule,    // Endpoints /utilisateurs/* pour la gestion des profils
+  ],
+})
+export class AppModule {}
+
+
+
+
+
+================================================================
+End of Codebase
+================================================================

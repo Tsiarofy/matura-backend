@@ -245,15 +245,13 @@ model Stade {
   // Ex S1 : { ...DonneesStade1, population_reference: 12000, score_solidite: 65 }
   // Ex S3 : { ...DonneesStade3, score_marche: 72, niveau_realisme: 'REALISTE', population_libre: 8000 }
   // Ex S5 : { ...DonneesStade5, point_mort_unites: 1200, autonomie_mois: 8 }
+  calculs_informatifs Json?
+  // Stocke les calculs informatifs pour affichage mentor/investisseur
+  // Structure : { stade_3: { population_totale, population_concernee, ... }, stade_5: { ... } }
   version     Int         @default(1)
   // Incrémenté à chaque soumission (pour l'historique)
   historique  Json[]      @default([])
   // Snapshots des versions précédentes
-  calculs_informatifs Json?
-  // Champ contenant les KPIs calculés côté client (TAM, SAM, SOM, ratios)
-  // Structure typée par CalculsInformatifsSchema (@matura/shared)
-  // Rempli par le frontend lors de l'enregistrement du Stade 3
-  // Consommé en lecture par les vues Mentor (IEME) et Investisseur (BRL)
   score_auto  Float?
   commence_le DateTime?
   soumis_le   DateTime?

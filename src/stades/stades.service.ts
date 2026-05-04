@@ -167,6 +167,7 @@ export class StadesService {
       soumis_le: stade.soumis_le?.toISOString() ?? null,
       valide_le: stade.valide_le?.toISOString() ?? null,
       maj_le: stade.maj_le.toISOString(),
+      calculs_informatifs: stade.calculs_informatifs,
     }
   }
 
@@ -176,7 +177,7 @@ export class StadesService {
     projetId: string,
     numStade: number,
     userId: string,
-    donnees: Record<string, unknown>,
+    payload: Record<string, unknown>,
   ) {
 
     // console.log("ARRIVER DANS LE SERVICES")
@@ -196,6 +197,11 @@ export class StadesService {
       // console.log("ARRIVER DANS LE SERVICES2")
       throw new BadRequestException(`STADE_NON_MODIFIABLE: statut=${stade.statut}`)
     }
+
+    // Extraction des calculs informatifs
+    const calculs_informatifs = payload.calculs_informatifs;
+    const donnees = { ...payload };
+    delete donnees.calculs_informatifs;
 
     // Délégation des calculs et validation au moteur du stade
     const engine = this.getEngine(numStade)
@@ -224,6 +230,7 @@ export class StadesService {
           version: { increment: 1 },
           historique: [...historique, snapshot] as never[],
           commence_le: stade.commence_le ?? new Date(),
+          ...(calculs_informatifs !== undefined && { calculs_informatifs: calculs_informatifs as any }),
         },
       })
 

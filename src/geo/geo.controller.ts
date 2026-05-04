@@ -65,4 +65,23 @@ export class GeoController {
     }
     return this.geoService.getStatistiquesZone(body.code, body.niveau, body.sousZones)
   }
+
+  // POST /api/geo/calcul-marche
+  // Calcul de marché pour Stade 3 avec prise en compte du type de client (B2B/B2C)
+  @Post('calcul-marche')
+  calculerMarche(@Body() body: {
+    typeClient: 'B2C' | 'B2B'
+    codeZone: string
+    niveauZone: string
+    pctUtilisateurs: number
+    partsConcurrents: Array<{ nom: string; part_globale_pct: number; part_zone_pct: number }>
+    tam_valeur: number
+    sam_valeur: number
+    som_valeur: number
+  }) {
+    if (!body.codeZone || !body.niveauZone) {
+      throw new BadRequestException('Les paramètres "codeZone" et "niveauZone" sont requis')
+    }
+    return this.geoService.calculerMarche(body)
+  }
 }

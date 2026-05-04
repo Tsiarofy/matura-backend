@@ -1,0 +1,35 @@
+{
+  "output": {
+    "filePath": "repomix-output.txt",
+    "style": "plain",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "showLineNumbers": false,
+    "copyToClipboard": false
+  },
+  "include": ["src/**/*"],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "node_modules/**",
+      "dist/**",
+      ".git/**",
+      ".vscode/**",
+      "prisma/**",
+      "seeds/**",
+      "test/**",
+      "uploads/**",
+      "*.config.*",
+      "tsconfig*.json",
+      ".gitignore",
+      ".prettierrc",
+      "README.md",
+      "nest-cli.json",
+      "eslint.config.mjs"
+    ]
+  }
+}
