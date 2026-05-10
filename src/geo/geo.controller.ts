@@ -37,6 +37,7 @@ export class GeoController {
     @Query('niveau') niveau: string,
     @Query('code') code: string,
   ) {
+
     if (!niveau || !code) {
       throw new BadRequestException('Les paramètres "niveau" et "code" sont requis')
     }
@@ -50,20 +51,30 @@ export class GeoController {
     @Query('code') code: string,
     @Query('niveau') niveau: string,
   ) {
+ 
     if (!code || !niveau) {
       throw new BadRequestException('Les paramètres "code" et "niveau" sont requis')
     }
+    // console.log('Calcul population', { code, niveau })
     return this.geoService.getPopulation(code, niveau)
   }
 
   // POST /api/geo/population
   // Calcul de population avec sous-zones spécifiques (pour affichage temps réel)
   @Post('population')
-  getPopulationWithSousZones(@Body() body: PopulationRequest) {
-    if (!body.code || !body.niveau) {
+  async getPopulationWithSousZones(@Body() data:PopulationRequest) {
+    // console.log()
+    console.log('Calcul population',data)
+
+    if (!data.code || !data.niveau) {
+      // console.log("dans le nloc cacth")
       throw new BadRequestException('Les paramètres "code" et "niveau" sont requis')
     }
-    return this.geoService.getStatistiquesZone(body.code, body.niveau, body.sousZones)
+    // console.log('Calcul population avec sous-zones', body)
+    
+    const response=await this.geoService.getStatistiquesZone(data.code, data.niveau, data.sousZones)
+    console.log(response)
+    return response;
   }
 
   // POST /api/geo/calcul-marche

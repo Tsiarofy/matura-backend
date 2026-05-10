@@ -145,6 +145,10 @@ export class StadesService {
     const alertes = await this.prisma.alerteProjet.findMany({
       where: { projet_id: projetId, stade_type: NUM_TO_TYPE[numStade] },
     })
+    if(numStade===1){
+      console.log("- - - data stade3- - - - -")
+      console.log(donnees)
+    }
 
     return {
       id: stade.id,

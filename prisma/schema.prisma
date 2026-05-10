@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 // ─── ENUMS ──────────────────────────────────────────────────────
@@ -236,11 +236,11 @@ model Projet {
 // ─── STADES ─────────────────────────────────────────────────────
 
 model Stade {
-  id          String      @id @default(cuid())
-  projet_id   String
-  type        TypeStade
-  statut      StatutStade @default(VERROUILLE)
-  donnees     Json        @default("{}")
+  id                  String      @id @default(cuid())
+  projet_id           String
+  type                TypeStade
+  statut              StatutStade @default(VERROUILLE)
+  donnees             Json        @default("{}")
   // Stocke DonneesStadeN + métriques calculées au PUT
   // Ex S1 : { ...DonneesStade1, population_reference: 12000, score_solidite: 65 }
   // Ex S3 : { ...DonneesStade3, score_marche: 72, niveau_realisme: 'REALISTE', population_libre: 8000 }
@@ -248,15 +248,15 @@ model Stade {
   calculs_informatifs Json?
   // Stocke les calculs informatifs pour affichage mentor/investisseur
   // Structure : { stade_3: { population_totale, population_concernee, ... }, stade_5: { ... } }
-  version     Int         @default(1)
+  version             Int         @default(1)
   // Incrémenté à chaque soumission (pour l'historique)
-  historique  Json[]      @default([])
+  historique          Json[]      @default([])
   // Snapshots des versions précédentes
-  score_auto  Float?
-  commence_le DateTime?
-  soumis_le   DateTime?
-  valide_le   DateTime?
-  maj_le      DateTime    @updatedAt
+  score_auto          Float?
+  commence_le         DateTime?
+  soumis_le           DateTime?
+  valide_le           DateTime?
+  maj_le              DateTime    @updatedAt
 
   projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
   evaluations Evaluation[]
