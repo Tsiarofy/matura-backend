@@ -9,71 +9,18 @@ datasource db {
 
 // ─── ENUMS ──────────────────────────────────────────────────────
 
-enum RoleUtilisateur {
-  ENTREPRENEUR
-  MENTOR
-  INVESTISSEUR
-  ADMIN
+enum TypeReunion {
+  SUIVI       // Entrepreneur ↔ Mentor
+  ENTRETIEN   // Entrepreneur ↔ Investisseur
 }
 
-enum StatutCompte {
-  EN_ATTENTE // Inscription soumise — en attente approbation admin
-  APPROUVE // Admin a approuvé — accès complet
-  REJETE // Admin a rejeté — accès bloqué
-  SUSPENDU // Admin a suspendu après approbation
-}
-
-// Note : StatutCompte ne s'applique qu'aux MENTOR et INVESTISSEUR
-// Les ENTREPRENEUR sont approuvés automatiquement à l'inscription
-// Les ADMIN sont créés directement en base
-
-enum SousTypeInvestisseur {
-  ANGEL
-  BANQUE
-  ONG
-  FONDS_IMPACT
-  INCUBATEUR
-  ETAT
-  AUTRE
-}
-
-enum DomainProjet {
-  TECH
-  AGRICULTURE
-  COMMERCE
-  SERVICE
-  SOCIAL
-  INDUSTRIE
-  AUTRE
-}
-
-enum StatutProjet {
-  BROUILLON // Créé — aucun stade commencé
-  EN_COURS // Au moins un stade en brouillon ou validé
-  EN_EVALUATION // Stade actuel soumis au mentor
-  VALIDE // Tous les stades complétés
-  DIPLOME // BRL 6+ validé + score >= 65 → visible investisseurs
-  FINANCE
-  ARCHIVE
-}
-
-enum TypeStade {
-  STADE_1_EMERGENCE
-  STADE_2_IDEATION
-  STADE_3_MARCHE
-  STADE_4_BMC
-  STADE_5_FAISABILITE
-  STADE_6_PROTOTYPE
-  STADE_7_LANCEMENT
-}
-
-enum StatutStade {
-  VERROUILLE
-  DEBLOQUE
-  BROUILLON
-  SOUMIS
-  EN_REVISION
-  VALIDE
+enum StatutReunion {
+  EN_ATTENTE  // Demande envoyée, en attente de confirmation
+  CONFIRME    // Confirmée — token LiveKit généré
+  REFUSE      // Refusée par le participant
+  EN_COURS    // Session active
+  TERMINEE    // Session terminée normalement
+  EXPIREE     // Délai dépassé (cron job)
 }
 
 enum Discipline {
@@ -88,27 +35,557 @@ enum Discipline {
   COMMUNICATION
 }
 
-enum TypeFinancementOffre {
-  SUBVENTION
-  PRET_HONNEUR
-  CAPITAL
-  BILLET_CONVERTIBLE
-  INCUBATION
-  CONCOURS
+enum DomainProjet {
+  TECH
+  AGRICULTURE
+  COMMERCE
+  SERVICE
+  SOCIAL
+  INDUSTRIE
+  AUTRE
+}
+
+enum RoleUtilisateur {
+  ENTREPRENEUR
+  MENTOR
+  INVESTISSEUR
+  ADMIN
+}
+
+enum SousTypeInvestisseur {
+  ANGEL
+  BANQUE
+  ONG
+  FONDS_IMPACT
+  INCUBATEUR
+  ETAT
   AUTRE
 }
 
 enum StatutCandidature {
   EN_ATTENTE
-  VU
-  INTERESSE
-  REFUSE
+  EN_REVUE
+  ACCEPTEE
+  REJETEE
+  RETIREE
+}
+
+enum StatutOffre {
+  OUVERTE
+  EN_COURS
+  FERMEE
+  CLOTUREE
+}
+
+enum StatutCompte {
+  EN_ATTENTE // Inscription soumise — en attente approbation admin
+  APPROUVE // Admin a approuvé — accès complet
+  REJETE // Admin a rejeté — accès bloqué
+  SUSPENDU // Admin a suspendu après approbation
+}
+
+// Note : StatutCompte ne s'applique qu'aux MENTOR et INVESTISSEUR
+// Les ENTREPRENEUR sont approuvés automatiquement à l'inscription
+// Les ADMIN sont créés directement en base
+
+enum StatutProjet {
+  BROUILLON // Créé — aucun stade commencé
+  EN_COURS // Au moins un stade en brouillon ou validé
+  EN_EVALUATION // Stade actuel soumis au mentor
+  VALIDE // Tous les stades complétés
+  DIPLOME // BRL 6+ validé + score >= 65 → visible investisseurs
   FINANCE
+  ARCHIVE
+}
+
+enum StatutStade {
+  VERROUILLE
+  DEBLOQUE
+  BROUILLON
+  SOUMIS
+  EN_REVISION
+  VALIDE
+}
+
+enum TypeCible {
+  B2C
+  B2B
+  B2B2C
 }
 
 enum TypeDecision {
   VALIDE
   RENVOYE
+}
+
+enum TypeFinancement {
+  SUBVENTION
+  PRET
+  EQUITY
+  OBLIGATION
+  DON
+}
+
+// BUG FIX : anciens enums (PRET_HONNEUR, CAPITAL...) ne correspondent pas au shared/src/schemas/financement.schema.ts
+
+enum TypeStade {
+  STADE_1_EMERGENCE
+  STADE_2_IDEATION
+  STADE_3_MARCHE
+  STADE_4_BMC
+  STADE_5_FAISABILITE
+  STADE_6_PROTOTYPE
+  STADE_7_LANCEMENT
+}
+
+// ─── MODÈLES (ORDRE ALPHABÉTIQUE) ──────────────────────────────
+
+// ─── ALERTES ────────────────────────────────────────────────────
+
+model AlerteProjet {
+  id         String    @id @default(cuid())
+  projet_id  String
+  stade_type TypeStade
+  code       String
+  // 'MARGE_NEGATIVE' | 'IRP_CRITIQUE' | 'EQUIPE_HOMOGENE' | 'AUTONOMIE_COURTE'
+  // 'POPULATION_INCOHERENTE' | 'SUR_EVALUATION_MARCHE' | etc.
+  niveau     String // 'CRITIQUE' | 'ATTENTION' | 'INFO'
+  message    String
+  resolue    Boolean   @default(false)
+  cree_le    DateTime  @default(now())
+
+  projet Projet @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+
+  @@map("alertes_projets")
+}
+
+// ─── CANDIDATURES ───────────────────────────────────────────────
+
+model Candidature {
+  id                String            @id @default(cuid())
+  projetId          String            @map("projet_id")
+  offreId           String            @map("offre_id")
+  entrepreneurId    String            @map("entrepreneur_id")
+  messageMotivation String?           @map("message")
+  statut            StatutCandidature @default(EN_ATTENTE)
+  brlAuMoment       Int               @map("brl_au_moment")
+  createdAt         DateTime          @default(now()) @map("cree_le")
+  updatedAt         DateTime          @updatedAt @map("maj_le")
+
+  projet       Projet           @relation(fields: [projetId], references: [id])
+  offre        OffreFinancement @relation(fields: [offreId], references: [id])
+  entrepreneur Utilisateur      @relation("EntrepreneurCandidatures", fields: [entrepreneurId], references: [id])
+
+  @@unique([projetId, offreId])
+  @@map("candidatures")
+}
+
+// ─── DEMANDES D'ACCOMPAGNEMENT ──────────────────────────────────
+
+model DemandeAccompagnement {
+  id        String   @id @default(cuid())
+  projet_id String
+  mentor_id String
+  message   String?
+  statut    String   @default("EN_ATTENTE")
+  // 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE'
+  cree_le   DateTime @default(now())
+  maj_le    DateTime @updatedAt
+
+  projet Projet      @relation(fields: [projet_id], references: [id])
+  mentor Utilisateur @relation(fields: [mentor_id], references: [id])
+
+  @@unique([projet_id, mentor_id]) // Une demande par paire projet/mentor
+  @@map("demandes_accompagnement")
+}
+
+// ─── DOCUMENTS & PREUVES ────────────────────────────────────────
+
+model Document {
+  id            String   @id @default(cuid())
+  stade_id      String
+  nom           String
+  url           String
+  type_fichier  String // 'PDF' | 'IMAGE' | 'VIDEO' | 'LIEN'
+  description   String?
+  type_preuve   String?
+  // S1 : 'PHOTO_TERRAIN' | 'NOTE_ENTRETIEN' | 'CAPTURE_CONVERSATION'
+  // S3 : 'QUESTIONNAIRE' | 'SOURCE_MARCHE'
+  // S5 : 'CV_LINKEDIN' | 'DEVIS_FOURNISSEUR'
+  // S6 : 'PHOTO_MVP' | 'VIDEO_MVP' | 'CAPTURE_RETOUR_CLIENT'
+  // S7 : 'PITCH_DECK' | 'LETTRE_INTERET'
+  taille_octets Int?
+  uploade_le    DateTime @default(now())
+
+  stade Stade @relation(fields: [stade_id], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// ─── GÉOGRAPHIE (17 465 Fokontany) ─────────────────────────────
+
+model DonneesGeographiques {
+  id              String @id @default(cuid())
+  code_national   String @default("MG")
+  code_region     String
+  nom_region      String
+  code_district   String
+  nom_district    String
+  code_commune    String
+  nom_commune     String
+  code_fokontany  String @unique
+  nom_fokontany   String
+  population_2018 Int
+  projection_2026 Int
+  // niveau          String // 'REGION' | 'DISTRICT' | 'COMMUNE' | 'FOKONTANY'
+
+  @@index([code_region])
+  @@index([code_district])
+  @@index([code_commune])
+  // @@index([niveau])
+  @@map("donnees_geographiques")
+}
+
+// ─── ÉVALUATIONS (MENTOR) ───────────────────────────────────────
+
+model Evaluation {
+  id           String       @id @default(cuid())
+  stade_id     String
+  mentor_id    String
+  // Toujours renseigné — une évaluation est faite par un mentor identifié
+  note         Float // 0-100
+  commentaire  String
+  criteres     Json
+  // { clarte_probleme: 80, validation_terrain: 70, realisme_contexte: 65 }
+  // Critères spécifiques selon TypeStade (voir MCDA section)
+  decision     TypeDecision
+  motif_renvoi String? // Obligatoire si decision = RENVOYE
+  cree_le      DateTime     @default(now())
+  maj_le       DateTime     @updatedAt
+
+  stade  Stade       @relation(fields: [stade_id], references: [id])
+  mentor Utilisateur @relation(fields: [mentor_id], references: [id])
+
+  @@map("evaluations")
+}
+
+// ─── FINANCES ───────────────────────────────────────────────────
+
+model FinancesProjet {
+  id        String @id @default(cuid())
+  projet_id String @unique
+
+  charges_fixes          Json // Array<{ libelle: string, montant_mensuel_ar: number }>
+  charges_variables      Json // Array<{ libelle: string, montant_par_unite_ar: number }>
+  prix_vente_ar          Float
+  unites_projetees       Json // { annee1: number, annee2: number, annee3: number }
+  investissement_initial Float
+  besoin_financement     Float
+  type_financement       String // 'SUBVENTION' | 'PRET' | 'CAPITAL' | 'PARTAGE_REVENUS' | 'MIXTE'
+
+  // Métriques calculées au PUT stade 5
+  point_mort_unites  Float?
+  point_mort_revenus Float?
+  ca_previsionnel    Json? // { annee1: number, annee2: number, annee3: number }
+  resultat_net       Json? // { annee1: number, annee2: number, annee3: number }
+  roi                Float?
+  autonomie_mois     Float?
+
+  maj_le DateTime @updatedAt
+  projet Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+
+  @@map("finances_projets")
+}
+
+// ─── FORMATIONS ───────────────────────────────────────────────────
+
+model Formation {
+  id          String  @id @default(cuid())
+  titre       String
+  description String?
+
+  // Auteur — doit être un MENTOR avec statut_compte APPROUVE
+  auteur_id String
+  auteur    Utilisateur @relation("FormationsCreees", fields: [auteur_id], references: [id])
+
+  // Filtres
+  domaine     DomainProjet // Obligatoire — enum existante
+  stade_cible Int? // Optionnel : 1 à 7
+  type_cible  TypeCible? // Optionnel — UTILISER L'ENUM, pas String
+
+  lessons Lesson[]
+
+  cree_le DateTime @default(now())
+  maj_le  DateTime @updatedAt
+
+  // Index pour les filtrages fréquents
+  @@index([domaine])
+  @@index([stade_cible])
+  @@index([type_cible])
+  @@index([auteur_id])
+  @@map("formations")
+}
+
+// ─── LEÇONS ──────────────────────────────────────────────────────
+
+model Lesson {
+  id           String @id @default(cuid())
+  formation_id String
+  titre        String
+  ordre        Int // Position dans la formation, commence à 1
+
+  // Les deux champs sont OBLIGATOIRES
+  contenu_texte String @db.Text // Markdown supporté
+  url_video     String // URL YouTube, Vimeo, MP4 direct ou chemin local (/uploads/...)
+
+  formation Formation @relation(fields: [formation_id], references: [id], onDelete: Cascade)
+
+  @@unique([formation_id, ordre]) // Empêche deux leçons avec le même ordre
+  @@index([formation_id])
+  @@map("lessons")
+}
+
+// ─── ÉQUIPE ─────────────────────────────────────────────────────
+
+model MembreEquipe {
+  id                String       @id @default(cuid())
+  projet_id         String
+  utilisateur_id    String? // Optionnel : membre externe à la plateforme
+  prenom_nom        String
+  role_projet       String
+  disciplines       Discipline[]
+  annees_experience Int          @default(0)
+  engagement        String       @default("TEMPS_PLEIN")
+  // 'TEMPS_PLEIN' | 'TEMPS_PARTIEL' | 'CONSEILLER'
+  est_fondateur     Boolean      @default(false)
+  pourcentage_parts Float?
+  linkedin_url      String?
+  ajoute_le         DateTime     @default(now())
+
+  projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  utilisateur Utilisateur? @relation(fields: [utilisateur_id], references: [id])
+
+  @@map("membres_equipe")
+}
+
+// ─── MISSIONS STADE ─────────────────────────────────────────────
+
+model MissionStade {
+  id              String    @id @default(cuid())
+  stade_id        String
+  mentor_id       String
+  ordre           Int
+  titre           String
+  objectif        String
+  date_limite     DateTime?
+  cree_le         DateTime  @default(now())
+  maj_le          DateTime  @updatedAt
+
+  stade           Stade                  @relation(fields: [stade_id], references: [id], onDelete: Cascade)
+  mentor          Utilisateur            @relation("MentorMissions", fields: [mentor_id], references: [id])
+  fichiers_requis FichierRequisMission[]
+  soumissions     MissionSoumission[]
+
+  @@index([stade_id])
+  @@map("missions_stade")
+}
+
+/// Un fichier requis défini par le mentor pour une mission donnée.
+model FichierRequisMission {
+  id          String       @id @default(cuid())
+  mission_id  String
+  type        String       // PDF | EXCEL | IMAGE | VIDEO
+  description String       // ex: "Excel listant les KPIs du trimestre"
+  ordre       Int          @default(0)
+
+  mission    MissionStade        @relation(fields: [mission_id], references: [id], onDelete: Cascade)
+  soumissions FichierSoumission[]
+
+  @@index([mission_id])
+  @@map("fichiers_requis_mission")
+}
+
+model MissionSoumission {
+  id              String    @id @default(cuid())
+  mission_id      String
+  entrepreneur_id String
+  statut          String    @default("INACHEVEE")
+  commentaire     String?
+  motif_rejet     String?
+  valide_le       DateTime?
+  soumis_le       DateTime?
+  cree_le         DateTime  @default(now())
+  maj_le          DateTime  @updatedAt
+
+  mission      MissionStade       @relation(fields: [mission_id], references: [id], onDelete: Cascade)
+  entrepreneur Utilisateur        @relation("EntrepreneurSoumissions", fields: [entrepreneur_id], references: [id])
+  fichiers     FichierSoumission[]
+
+  @@unique([mission_id, entrepreneur_id])
+  @@map("missions_soumissions")
+}
+
+/// Un fichier soumis par l'entrepreneur pour un fichier requis précis (ou libre si fichier_requis_id est null).
+model FichierSoumission {
+  id                    String   @id @default(cuid())
+  soumission_id         String
+  fichier_requis_id     String?
+  fichier_url           String
+  fichier_nom           String
+  fichier_type          String
+  fichier_taille_octets Int?
+  cree_le               DateTime @default(now())
+
+  soumission    MissionSoumission    @relation(fields: [soumission_id], references: [id], onDelete: Cascade)
+  fichier_requis FichierRequisMission? @relation(fields: [fichier_requis_id], references: [id])
+
+  // L'unicité est toujours appliquée si fichier_requis_id est présent (Postgres autorise plusieurs NULL dans un @@unique)
+  @@unique([soumission_id, fichier_requis_id])
+  @@map("fichiers_soumission")
+}
+
+// ─── OFFRES DE FINANCEMENT ──────────────────────────────────────
+
+model OffreFinancement {
+  id              String          @id @default(cuid())
+  investisseurId  String          @map("investisseur_id")
+  titre           String
+  description     String
+  typeFinancement TypeFinancement @map("type_financement")
+  montantMin      Float?          @map("montant_min_ar")
+  montantMax      Float?          @map("montant_max_ar")
+  devise          String          @default("MGA")
+  stadeCible      Int             @map("brl_minimal")
+  secteurs        String[]        @map("secteurs_cibles")
+  regions         String[]        @map("regions_cibles")
+  dateCloture     DateTime?       @map("date_limite")
+  statut          StatutOffre     @default(OUVERTE) @map("statut")
+  createdAt       DateTime        @default(now()) @map("cree_le")
+  updatedAt       DateTime        @updatedAt @map("maj_le")
+
+  investisseur Utilisateur   @relation("InvestisseurOffres", fields: [investisseurId], references: [id])
+  candidatures Candidature[]
+
+  @@map("offres_financement")
+}
+
+// ─── PROJETS ────────────────────────────────────────────────────
+
+model Projet {
+  id          String       @id @default(cuid())
+  titre       String
+  description String
+  domaine     DomainProjet
+  secteur     String
+  region      String
+  type_cible  String // 'B2C' | 'B2B' | 'B2B2C'
+  statut      StatutProjet @default(BROUILLON)
+  brl_actuel  Int          @default(0)
+  // 0 = créé, aucun stade commencé
+  // 1-7 = numéro du dernier stade VALIDE
+  est_public  Boolean      @default(false)
+  // true = visible aux investisseurs (déclenché quand BRL >= 6 + score >= 65)
+  cree_le     DateTime     @default(now())
+  maj_le      DateTime     @updatedAt
+
+  // Relations
+  proprietaire_id String
+  proprietaire    Utilisateur @relation("ProprietaireProjet", fields: [proprietaire_id], references: [id])
+
+  mentor_id String?
+  mentor    Utilisateur? @relation("MentorProjet", fields: [mentor_id], references: [id])
+  // Un projet a 0 ou 1 mentor (relation directe — plus simple que table pivot)
+  // Un mentor peut suivre N projets
+
+  stades       Stade[]
+  equipe       MembreEquipe[]
+  score        ScoreProjet?
+  finances     FinancesProjet?
+  alertes      AlerteProjet[]
+  candidatures Candidature[]
+  demandes     DemandeAccompagnement[]
+  reunions     ReunionSession[]
+
+  @@map("projets")
+}
+
+// ─── SCORES MCDA ────────────────────────────────────────────────
+
+model ScoreProjet {
+  id        String @id @default(cuid())
+  projet_id String @unique
+
+  score_stade_1 Float @default(0)
+  score_stade_2 Float @default(0)
+  score_stade_3 Float @default(0)
+  score_stade_4 Float @default(0)
+  score_stade_5 Float @default(0)
+  score_stade_6 Float @default(0)
+  score_stade_7 Float @default(0)
+
+  score_global Float @default(0)
+
+  // 5 dimensions Spider Chart
+  score_innovation Float @default(0) // (S1 + S2) / 2
+  score_marche     Float @default(0) // S3
+  score_equipe     Float @default(0) // S5 sous-score équipe
+  score_finance    Float @default(0) // (S4 + S5 sous-score finance) / 2
+  score_execution  Float @default(0) // (S6 + S7) / 2
+
+  calcule_le DateTime @default(now())
+  projet     Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+
+  @@map("scores_projets")
+}
+
+// ─── STADES ─────────────────────────────────────────────────────
+
+model Stade {
+  id                  String      @id @default(cuid())
+  projet_id           String
+  type                TypeStade
+  statut              StatutStade @default(VERROUILLE)
+  missions_completees Boolean     @default(true)
+  donnees             Json        @default("{}")
+  // Stocke DonneesStadeN + métriques calculées au PUT
+  // Ex S1 : { ...DonneesStade1, population_reference: 12000, score_solidite: 65 }
+  // Ex S3 : { ...DonneesStade3, score_marche: 72, niveau_realisme: 'REALISTE', population_libre: 8000 }
+  // Ex S5 : { ...DonneesStade5, point_mort_unites: 1200, autonomie_mois: 8 }
+  calculs_informatifs Json?
+  // Stocke les calculs informatifs pour affichage mentor/investisseur
+  // Structure : { stade_3: { population_totale, population_concernee, ... }, stade_5: { ... } }
+  version             Int         @default(1)
+  // Incrémenté à chaque soumission (pour l'historique)
+  historique          Json[]      @default([])
+  // Snapshots des versions précédentes
+  score_auto          Float?
+  commence_le         DateTime?
+  soumis_le           DateTime?
+  valide_le           DateTime?
+  maj_le              DateTime    @updatedAt
+
+  projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  evaluations Evaluation[]
+  documents   Document[]
+  missions    MissionStade[]
+
+  @@unique([projet_id, type])
+  @@map("stades")
+}
+
+// ─── TOKENS REFRESH ─────────────────────────────────────────────
+
+model TokenRefresh {
+  id             String   @id @default(cuid())
+  token          String   @unique
+  utilisateur_id String
+  expire_le      DateTime
+  invalide       Boolean  @default(false)
+  cree_le        DateTime @default(now())
+
+  utilisateur Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
+
+  @@map("tokens_refresh")
 }
 
 // ─── UTILISATEURS ───────────────────────────────────────────────
@@ -135,8 +612,15 @@ model Utilisateur {
   membres_equipe          MembreEquipe[]
   evaluations             Evaluation[]
   tokens_refresh          TokenRefresh[]
-  offres_financement      OffreFinancement[]
+  offres_financement      OffreFinancement[]      @relation("InvestisseurOffres")
+  candidatures_soumises   Candidature[]           @relation("EntrepreneurCandidatures")
   demandes_accompagnement DemandeAccompagnement[]
+  formations_creees       Formation[]             @relation("FormationsCreees")
+  missions_creees         MissionStade[]          @relation("MentorMissions")
+  soumissions_missions    MissionSoumission[]     @relation("EntrepreneurSoumissions")
+  notifications           Notification[]          // NOUVEAU
+  reunions_initiees       ReunionSession[]        @relation("ReunionsInitiees")
+  reunions_recues         ReunionSession[]        @relation("ReunionsRecues")
 
   @@map("utilisateurs")
 }
@@ -181,319 +665,68 @@ model Utilisateur {
 //   site_web?: string
 // }
 
-model TokenRefresh {
-  id             String   @id @default(cuid())
-  token          String   @unique
-  utilisateur_id String
-  expire_le      DateTime
-  invalide       Boolean  @default(false)
-  cree_le        DateTime @default(now())
+enum TypeNotification {
+  STADE_SOUMIS
+  STADE_VALIDE
+  STADE_RENVOYE
+  MISSION_REJETEE
+  MISSION_VALIDEE
+  DEMANDE_RECUE
+  DEMANDE_ACCEPTEE
+  DEMANDE_REFUSEE
+  CANDIDATURE_MAJ
+  MISSION_DEADLINE_PROCHE
+  REUNION_DEMANDEE
+  REUNION_CONFIRMEE
+  REUNION_REFUSEE
+  APPEL_INSTANTANE
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  utilisateur_id  String
+  type            TypeNotification
+  titre           String
+  corps           String
+  lien_relatif    String?          // ex: "/projets/abc123/stades/2"
+  lue             Boolean          @default(false)
+  cree_le         DateTime         @default(now())
 
   utilisateur Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
 
-  @@map("tokens_refresh")
+  @@index([utilisateur_id, lue])
+  @@map("notifications")
 }
 
-// ─── PROJETS ────────────────────────────────────────────────────
+// ─── RÉUNION SESSION ────────────────────────────────────────────
 
-model Projet {
-  id          String       @id @default(cuid())
-  titre       String
-  description String
-  domaine     DomainProjet
-  secteur     String
-  region      String
-  type_cible  String // 'B2C' | 'B2B' | 'B2B2C'
-  statut      StatutProjet @default(BROUILLON)
-  brl_actuel  Int          @default(0)
-  // 0 = créé, aucun stade commencé
-  // 1-7 = numéro du dernier stade VALIDE
-  est_public  Boolean      @default(false)
-  // true = visible aux investisseurs (déclenché quand BRL >= 6 + score >= 65)
-  cree_le     DateTime     @default(now())
-  maj_le      DateTime     @updatedAt
+model ReunionSession {
+  id             String        @id @default(cuid())
+  type           TypeReunion
+  statut         StatutReunion @default(EN_ATTENTE)
+
+  initiateur_id  String
+  participant_id String
+  projet_id      String
+
+  date_planifiee DateTime?     // null = appel instantané
+  livekit_room   String?       // nom unique de la room LiveKit
+  livekit_token  String?       // token JWT (pour appels instantanés)
+
+  cree_le           DateTime      @default(now())
+  expire_le         DateTime?     // date_planifiee + durée_session (ex: +2h)
+  maj_le            DateTime      @updatedAt
+  initiateur_joint  Boolean       @default(false)
+  participant_joint Boolean       @default(false)
+  vide_depuis       DateTime?
 
   // Relations
-  proprietaire_id String
-  proprietaire    Utilisateur @relation("ProprietaireProjet", fields: [proprietaire_id], references: [id])
+  initiateur  Utilisateur @relation("ReunionsInitiees",  fields: [initiateur_id],  references: [id])
+  participant Utilisateur @relation("ReunionsRecues",    fields: [participant_id], references: [id])
+  projet      Projet      @relation(fields: [projet_id], references: [id], onDelete: Cascade)
 
-  mentor_id String?
-  mentor    Utilisateur? @relation("MentorProjet", fields: [mentor_id], references: [id])
-  // Un projet a 0 ou 1 mentor (relation directe — plus simple que table pivot)
-  // Un mentor peut suivre N projets
-
-  stades       Stade[]
-  equipe       MembreEquipe[]
-  score        ScoreProjet?
-  finances     FinancesProjet?
-  alertes      AlerteProjet[]
-  candidatures Candidature[]
-  demandes     DemandeAccompagnement[]
-
-  @@map("projets")
-}
-
-// ─── STADES ─────────────────────────────────────────────────────
-
-model Stade {
-  id                  String      @id @default(cuid())
-  projet_id           String
-  type                TypeStade
-  statut              StatutStade @default(VERROUILLE)
-  donnees             Json        @default("{}")
-  // Stocke DonneesStadeN + métriques calculées au PUT
-  // Ex S1 : { ...DonneesStade1, population_reference: 12000, score_solidite: 65 }
-  // Ex S3 : { ...DonneesStade3, score_marche: 72, niveau_realisme: 'REALISTE', population_libre: 8000 }
-  // Ex S5 : { ...DonneesStade5, point_mort_unites: 1200, autonomie_mois: 8 }
-  calculs_informatifs Json?
-  // Stocke les calculs informatifs pour affichage mentor/investisseur
-  // Structure : { stade_3: { population_totale, population_concernee, ... }, stade_5: { ... } }
-  version             Int         @default(1)
-  // Incrémenté à chaque soumission (pour l'historique)
-  historique          Json[]      @default([])
-  // Snapshots des versions précédentes
-  score_auto          Float?
-  commence_le         DateTime?
-  soumis_le           DateTime?
-  valide_le           DateTime?
-  maj_le              DateTime    @updatedAt
-
-  projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
-  evaluations Evaluation[]
-  documents   Document[]
-
-  @@unique([projet_id, type])
-  @@map("stades")
-}
-
-// ─── DOCUMENTS & PREUVES ────────────────────────────────────────
-
-model Document {
-  id            String   @id @default(cuid())
-  stade_id      String
-  nom           String
-  url           String
-  type_fichier  String // 'PDF' | 'IMAGE' | 'VIDEO' | 'LIEN'
-  description   String?
-  type_preuve   String?
-  // S1 : 'PHOTO_TERRAIN' | 'NOTE_ENTRETIEN' | 'CAPTURE_CONVERSATION'
-  // S3 : 'QUESTIONNAIRE' | 'SOURCE_MARCHE'
-  // S5 : 'CV_LINKEDIN' | 'DEVIS_FOURNISSEUR'
-  // S6 : 'PHOTO_MVP' | 'VIDEO_MVP' | 'CAPTURE_RETOUR_CLIENT'
-  // S7 : 'PITCH_DECK' | 'LETTRE_INTERET'
-  taille_octets Int?
-  uploade_le    DateTime @default(now())
-
-  stade Stade @relation(fields: [stade_id], references: [id], onDelete: Cascade)
-
-  @@map("documents")
-}
-
-// ─── ÉQUIPE ─────────────────────────────────────────────────────
-
-model MembreEquipe {
-  id                String       @id @default(cuid())
-  projet_id         String
-  utilisateur_id    String? // Optionnel : membre externe à la plateforme
-  prenom_nom        String
-  role_projet       String
-  disciplines       Discipline[]
-  annees_experience Int          @default(0)
-  engagement        String       @default("TEMPS_PLEIN")
-  // 'TEMPS_PLEIN' | 'TEMPS_PARTIEL' | 'CONSEILLER'
-  est_fondateur     Boolean      @default(false)
-  pourcentage_parts Float?
-  linkedin_url      String?
-  ajoute_le         DateTime     @default(now())
-
-  projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
-  utilisateur Utilisateur? @relation(fields: [utilisateur_id], references: [id])
-
-  @@map("membres_equipe")
-}
-
-// ─── ÉVALUATIONS (MENTOR) ───────────────────────────────────────
-
-model Evaluation {
-  id           String       @id @default(cuid())
-  stade_id     String
-  mentor_id    String
-  // Toujours renseigné — une évaluation est faite par un mentor identifié
-  note         Float // 0-100
-  commentaire  String
-  criteres     Json
-  // { clarte_probleme: 80, validation_terrain: 70, realisme_contexte: 65 }
-  // Critères spécifiques selon TypeStade (voir MCDA section)
-  decision     TypeDecision
-  motif_renvoi String? // Obligatoire si decision = RENVOYE
-  cree_le      DateTime     @default(now())
-  maj_le       DateTime     @updatedAt
-
-  stade  Stade       @relation(fields: [stade_id], references: [id])
-  mentor Utilisateur @relation(fields: [mentor_id], references: [id])
-
-  @@map("evaluations")
-}
-
-// ─── SCORES MCDA ────────────────────────────────────────────────
-
-model ScoreProjet {
-  id        String @id @default(cuid())
-  projet_id String @unique
-
-  score_stade_1 Float @default(0)
-  score_stade_2 Float @default(0)
-  score_stade_3 Float @default(0)
-  score_stade_4 Float @default(0)
-  score_stade_5 Float @default(0)
-  score_stade_6 Float @default(0)
-  score_stade_7 Float @default(0)
-
-  score_global Float @default(0)
-
-  // 5 dimensions Spider Chart
-  score_innovation Float @default(0) // (S1 + S2) / 2
-  score_marche     Float @default(0) // S3
-  score_equipe     Float @default(0) // S5 sous-score équipe
-  score_finance    Float @default(0) // (S4 + S5 sous-score finance) / 2
-  score_execution  Float @default(0) // (S6 + S7) / 2
-
-  calcule_le DateTime @default(now())
-  projet     Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
-
-  @@map("scores_projets")
-}
-
-// ─── FINANCES ───────────────────────────────────────────────────
-
-model FinancesProjet {
-  id        String @id @default(cuid())
-  projet_id String @unique
-
-  charges_fixes          Json // Array<{ libelle: string, montant_mensuel_ar: number }>
-  charges_variables      Json // Array<{ libelle: string, montant_par_unite_ar: number }>
-  prix_vente_ar          Float
-  unites_projetees       Json // { annee1: number, annee2: number, annee3: number }
-  investissement_initial Float
-  besoin_financement     Float
-  type_financement       String // 'SUBVENTION' | 'PRET' | 'CAPITAL' | 'PARTAGE_REVENUS' | 'MIXTE'
-
-  // Métriques calculées au PUT stade 5
-  point_mort_unites  Float?
-  point_mort_revenus Float?
-  ca_previsionnel    Json? // { annee1: number, annee2: number, annee3: number }
-  resultat_net       Json? // { annee1: number, annee2: number, annee3: number }
-  roi                Float?
-  autonomie_mois     Float?
-
-  maj_le DateTime @updatedAt
-  projet Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
-
-  @@map("finances_projets")
-}
-
-// ─── ALERTES ────────────────────────────────────────────────────
-
-model AlerteProjet {
-  id         String    @id @default(cuid())
-  projet_id  String
-  stade_type TypeStade
-  code       String
-  // 'MARGE_NEGATIVE' | 'IRP_CRITIQUE' | 'EQUIPE_HOMOGENE' | 'AUTONOMIE_COURTE'
-  // 'POPULATION_INCOHERENTE' | 'SUR_EVALUATION_MARCHE' | etc.
-  niveau     String // 'CRITIQUE' | 'ATTENTION' | 'INFO'
-  message    String
-  resolue    Boolean   @default(false)
-  cree_le    DateTime  @default(now())
-
-  projet Projet @relation(fields: [projet_id], references: [id], onDelete: Cascade)
-
-  @@map("alertes_projets")
-}
-
-// ─── OFFRES DE FINANCEMENT ──────────────────────────────────────
-
-model OffreFinancement {
-  id               String               @id @default(cuid())
-  investisseur_id  String
-  titre            String
-  description      String
-  type_financement TypeFinancementOffre
-  montant_min_ar   Float?
-  montant_max_ar   Float?
-  brl_minimal      Int // BRL min pour postuler (1-7)
-  secteurs_cibles  String[] // [] = tous secteurs
-  regions_cibles   String[] // [] = toutes régions
-  date_limite      DateTime?
-  est_actif        Boolean              @default(true)
-  // false avant approbation admin + après date_limite
-  cree_le          DateTime             @default(now())
-  maj_le           DateTime             @updatedAt
-
-  investisseur Utilisateur   @relation(fields: [investisseur_id], references: [id])
-  candidatures Candidature[]
-
-  @@map("offres_financement")
-}
-
-// ─── CANDIDATURES ───────────────────────────────────────────────
-
-model Candidature {
-  id            String            @id @default(cuid())
-  projet_id     String
-  offre_id      String
-  message       String?
-  statut        StatutCandidature @default(EN_ATTENTE)
-  brl_au_moment Int // BRL du projet au moment de la candidature
-  cree_le       DateTime          @default(now())
-  maj_le        DateTime          @updatedAt
-
-  projet Projet           @relation(fields: [projet_id], references: [id])
-  offre  OffreFinancement @relation(fields: [offre_id], references: [id])
-
-  @@unique([projet_id, offre_id]) // Un projet postule une seule fois par offre
-  @@map("candidatures")
-}
-
-// ─── DEMANDES D'ACCOMPAGNEMENT ──────────────────────────────────
-
-model DemandeAccompagnement {
-  id        String   @id @default(cuid())
-  projet_id String
-  mentor_id String
-  message   String?
-  statut    String   @default("EN_ATTENTE")
-  // 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE'
-  cree_le   DateTime @default(now())
-  maj_le    DateTime @updatedAt
-
-  projet Projet      @relation(fields: [projet_id], references: [id])
-  mentor Utilisateur @relation(fields: [mentor_id], references: [id])
-
-  @@unique([projet_id, mentor_id]) // Une demande par paire projet/mentor
-  @@map("demandes_accompagnement")
-}
-
-// ─── GÉOGRAPHIE (17 465 Fokontany) ─────────────────────────────
-
-model DonneesGeographiques {
-  id              String @id @default(cuid())
-  code_national   String @default("MG")
-  code_region     String
-  nom_region      String
-  code_district   String
-  nom_district    String
-  code_commune    String
-  nom_commune     String
-  code_fokontany  String @unique
-  nom_fokontany   String
-  population_2018 Int
-  projection_2026 Int
-  // niveau          String // 'REGION' | 'DISTRICT' | 'COMMUNE' | 'FOKONTANY'
-
-  @@index([code_region])
-  @@index([code_district])
-  @@index([code_commune])
-  // @@index([niveau])
-  @@map("donnees_geographiques")
+  @@index([initiateur_id])
+  @@index([participant_id])
+  @@index([projet_id])
+  @@map("reunion_sessions")
 }

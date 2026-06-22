@@ -1,0 +1,387 @@
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+// model alertes_projets {
+//   id         String    @id
+//   projet_id  String
+//   stade_type TypeStade
+//   code       String
+//   niveau     String
+//   message    String
+//   resolue    Boolean   @default(false)
+//   cree_le    DateTime  @default(now())
+//   projets    projets   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+// }
+
+// model candidatures {
+//   id                 String             @id
+//   projet_id          String
+//   offre_id           String
+//   message            String?
+//   statut             StatutCandidature  @default(EN_ATTENTE)
+//   brl_au_moment      Int
+//   cree_le            DateTime           @default(now())
+//   maj_le             DateTime
+//   offres_financement offres_financement @relation(fields: [offre_id], references: [id])
+//   projets            projets            @relation(fields: [projet_id], references: [id])
+
+//   @@unique([projet_id, offre_id])
+// }
+
+// model demandes_accompagnement {
+//   id           String       @id
+//   projet_id    String
+//   mentor_id    String
+//   message      String?
+//   statut       String       @default("EN_ATTENTE")
+//   cree_le      DateTime     @default(now())
+//   maj_le       DateTime
+//   utilisateurs utilisateurs @relation(fields: [mentor_id], references: [id])
+//   projets      projets      @relation(fields: [projet_id], references: [id])
+
+//   @@unique([projet_id, mentor_id])
+// }
+
+// model documents {
+//   id            String   @id
+//   stade_id      String
+//   nom           String
+//   url           String
+//   type_fichier  String
+//   description   String?
+//   type_preuve   String?
+//   taille_octets Int?
+//   uploade_le    DateTime @default(now())
+//   stades        stades   @relation(fields: [stade_id], references: [id], onDelete: Cascade)
+// }
+
+// model donnees_geographiques {
+//   id              String @id
+//   code_national   String @default("MG")
+//   code_region     String
+//   nom_region      String
+//   code_district   String
+//   nom_district    String
+//   code_commune    String
+//   nom_commune     String
+//   code_fokontany  String @unique
+//   nom_fokontany   String
+//   population_2018 Int
+//   projection_2026 Int
+
+//   @@index([code_commune])
+//   @@index([code_district])
+//   @@index([code_region])
+// }
+
+// model evaluations {
+//   id           String       @id
+//   stade_id     String
+//   mentor_id    String
+//   note         Float
+//   commentaire  String
+//   criteres     Json
+//   decision     TypeDecision
+//   motif_renvoi String?
+//   cree_le      DateTime     @default(now())
+//   maj_le       DateTime
+//   utilisateurs utilisateurs @relation(fields: [mentor_id], references: [id])
+//   stades       stades       @relation(fields: [stade_id], references: [id])
+// }
+
+// model finances_projets {
+//   id                     String   @id
+//   projet_id              String   @unique
+//   charges_fixes          Json
+//   charges_variables      Json
+//   prix_vente_ar          Float
+//   unites_projetees       Json
+//   investissement_initial Float
+//   besoin_financement     Float
+//   type_financement       String
+//   point_mort_unites      Float?
+//   point_mort_revenus     Float?
+//   ca_previsionnel        Json?
+//   resultat_net           Json?
+//   roi                    Float?
+//   autonomie_mois         Float?
+//   maj_le                 DateTime
+//   projets                projets  @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+// }
+
+// model formations {
+//   id           String       @id
+//   titre        String
+//   description  String?
+//   auteur_id    String
+//   domaine      DomainProjet
+//   stade_cible  Int?
+//   type_cible   TypeCible?
+//   cree_le      DateTime     @default(now())
+//   maj_le       DateTime
+//   utilisateurs utilisateurs @relation(fields: [auteur_id], references: [id])
+//   lessons      lessons[]
+
+//   @@index([auteur_id])
+//   @@index([domaine])
+//   @@index([stade_cible])
+//   @@index([type_cible])
+// }
+
+// model lessons {
+//   id            String     @id
+//   formation_id  String
+//   titre         String
+//   ordre         Int
+//   contenu_texte String
+//   url_video     String
+//   formations    formations @relation(fields: [formation_id], references: [id], onDelete: Cascade)
+
+//   @@unique([formation_id, ordre])
+//   @@index([formation_id])
+// }
+
+// model membres_equipe {
+//   id                String        @id
+//   projet_id         String
+//   utilisateur_id    String?
+//   prenom_nom        String
+//   role_projet       String
+//   disciplines       Discipline[]
+//   annees_experience Int           @default(0)
+//   engagement        String        @default("TEMPS_PLEIN")
+//   est_fondateur     Boolean       @default(false)
+//   pourcentage_parts Float?
+//   linkedin_url      String?
+//   ajoute_le         DateTime      @default(now())
+//   projets           projets       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+//   utilisateurs      utilisateurs? @relation(fields: [utilisateur_id], references: [id])
+// }
+
+// model offres_financement {
+//   id               String               @id
+//   investisseur_id  String
+//   titre            String
+//   description      String
+//   type_financement TypeFinancementOffre
+//   montant_min_ar   Float?
+//   montant_max_ar   Float?
+//   brl_minimal      Int
+//   secteurs_cibles  String[]
+//   regions_cibles   String[]
+//   date_limite      DateTime?
+//   est_actif        Boolean              @default(true)
+//   cree_le          DateTime             @default(now())
+//   maj_le           DateTime
+//   candidatures     candidatures[]
+//   utilisateurs     utilisateurs         @relation(fields: [investisseur_id], references: [id])
+// }
+
+// model projets {
+//   id                                                 String                    @id
+//   titre                                              String
+//   description                                        String
+//   domaine                                            DomainProjet
+//   secteur                                            String
+//   region                                             String
+//   type_cible                                         String
+//   statut                                             StatutProjet              @default(BROUILLON)
+//   brl_actuel                                         Int                       @default(0)
+//   est_public                                         Boolean                   @default(false)
+//   proprietaire_id                                    String
+//   mentor_id                                          String?
+//   cree_le                                            DateTime                  @default(now())
+//   maj_le                                             DateTime
+//   alertes_projets                                    alertes_projets[]
+//   candidatures                                       candidatures[]
+//   demandes_accompagnement                            demandes_accompagnement[]
+//   finances_projets                                   finances_projets?
+//   membres_equipe                                     membres_equipe[]
+//   utilisateurs_projets_mentor_idToutilisateurs       utilisateurs?             @relation("projets_mentor_idToutilisateurs", fields: [mentor_id], references: [id])
+//   utilisateurs_projets_proprietaire_idToutilisateurs utilisateurs              @relation("projets_proprietaire_idToutilisateurs", fields: [proprietaire_id], references: [id])
+//   scores_projets                                     scores_projets?
+//   stades                                             stades[]
+// }
+
+// model scores_projets {
+//   id               String   @id
+//   projet_id        String   @unique
+//   score_stade_1    Float    @default(0)
+//   score_stade_2    Float    @default(0)
+//   score_stade_3    Float    @default(0)
+//   score_stade_4    Float    @default(0)
+//   score_stade_5    Float    @default(0)
+//   score_stade_6    Float    @default(0)
+//   score_stade_7    Float    @default(0)
+//   score_global     Float    @default(0)
+//   score_innovation Float    @default(0)
+//   score_marche     Float    @default(0)
+//   score_equipe     Float    @default(0)
+//   score_finance    Float    @default(0)
+//   score_execution  Float    @default(0)
+//   calcule_le       DateTime @default(now())
+//   projets          projets  @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+// }
+
+// model stades {
+//   id                  String        @id
+//   projet_id           String
+//   type                TypeStade
+//   statut              StatutStade   @default(VERROUILLE)
+//   donnees             Json          @default("{}")
+//   version             Int           @default(1)
+//   historique          Json[]        @default([])
+//   score_auto          Float?
+//   commence_le         DateTime?
+//   soumis_le           DateTime?
+//   valide_le           DateTime?
+//   maj_le              DateTime
+//   calculs_informatifs Json?
+//   documents           documents[]
+//   evaluations         evaluations[]
+//   projets             projets       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+
+//   @@unique([projet_id, type])
+// }
+
+// model tokens_refresh {
+//   id             String       @id
+//   token          String       @unique
+//   utilisateur_id String
+//   expire_le      DateTime
+//   invalide       Boolean      @default(false)
+//   cree_le        DateTime     @default(now())
+//   utilisateurs   utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
+// }
+
+// model utilisateurs {
+//   id                                            String                    @id
+//   email                                         String                    @unique
+//   prenom                                        String
+//   nom                                           String
+//   role                                          RoleUtilisateur
+//   statut_compte                                 StatutCompte              @default(APPROUVE)
+//   profil                                        Json?
+//   url_avatar                                    String?
+//   password                                      String
+//   cree_le                                       DateTime                  @default(now())
+//   maj_le                                        DateTime
+//   demandes_accompagnement                       demandes_accompagnement[]
+//   evaluations                                   evaluations[]
+//   formations                                    formations[]
+//   membres_equipe                                membres_equipe[]
+//   offres_financement                            offres_financement[]
+//   projets_projets_mentor_idToutilisateurs       projets[]                 @relation("projets_mentor_idToutilisateurs")
+//   projets_projets_proprietaire_idToutilisateurs projets[]                 @relation("projets_proprietaire_idToutilisateurs")
+//   tokens_refresh                                tokens_refresh[]
+// }
+
+// enum Discipline {
+//   TECH
+//   DESIGN
+//   VENTE
+//   FINANCE
+//   JURIDIQUE
+//   MARKETING
+//   OPERATIONS
+//   EXPERT_DOMAINE
+//   COMMUNICATION
+// }
+
+// enum DomainProjet {
+//   TECH
+//   AGRICULTURE
+//   COMMERCE
+//   SERVICE
+//   SOCIAL
+//   INDUSTRIE
+//   AUTRE
+// }
+
+// enum RoleUtilisateur {
+//   ENTREPRENEUR
+//   MENTOR
+//   INVESTISSEUR
+//   ADMIN
+// }
+
+// enum SousTypeInvestisseur {
+//   ANGEL
+//   BANQUE
+//   ONG
+//   FONDS_IMPACT
+//   INCUBATEUR
+//   ETAT
+//   AUTRE
+// }
+
+// enum StatutCandidature {
+//   EN_ATTENTE
+//   VU
+//   INTERESSE
+//   REFUSE
+//   FINANCE
+// }
+
+// enum StatutCompte {
+//   EN_ATTENTE
+//   APPROUVE
+//   REJETE
+//   SUSPENDU
+// }
+
+// enum StatutProjet {
+//   BROUILLON
+//   EN_COURS
+//   EN_EVALUATION
+//   VALIDE
+//   DIPLOME
+//   FINANCE
+//   ARCHIVE
+// }
+
+// enum StatutStade {
+//   VERROUILLE
+//   DEBLOQUE
+//   BROUILLON
+//   SOUMIS
+//   EN_REVISION
+//   VALIDE
+// }
+
+// enum TypeCible {
+//   B2C
+//   B2B
+//   B2B2C
+// }
+
+// enum TypeDecision {
+//   VALIDE
+//   RENVOYE
+// }
+
+// enum TypeFinancementOffre {
+//   SUBVENTION
+//   PRET_HONNEUR
+//   CAPITAL
+//   BILLET_CONVERTIBLE
+//   INCUBATION
+//   CONCOURS
+//   AUTRE
+// }
+
+// enum TypeStade {
+//   STADE_1_EMERGENCE
+//   STADE_2_IDEATION
+//   STADE_3_MARCHE
+//   STADE_4_BMC
+//   STADE_5_FAISABILITE
+//   STADE_6_PROTOTYPE
+//   STADE_7_LANCEMENT
+// }

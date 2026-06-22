@@ -1,0 +1,99 @@
+name: Deploy Backend
+on:
+  push:
+    branches: [server]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package backend files for deployment
+        run: |
+          set -e
+          DEPLOY_TAR="$RUNNER_TEMP/backend-deploy.tar.gz"
+          FILES="package.json pnpm-lock.yaml tsconfig.json tsconfig.build.json nest-cli.json src prisma"
+          TAR_ARGS=""
+          for f in $FILES; do
+            if [ -e "$f" ]; then
+              TAR_ARGS="$TAR_ARGS $f"
+            fi
+          done
+          echo "Fichiers inclus dans le tar: $TAR_ARGS"
+          tar -zcf "$DEPLOY_TAR" $TAR_ARGS
+          ls -lh "$DEPLOY_TAR"
+          echo "DEPLOY_TAR=$DEPLOY_TAR" >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Setup SSH key
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.GCP_IP }} >> ~/.ssh/known_hosts 2>/dev/null
+        shell: bash
+
+      - name: Upload tar via scp
+        run: |
+          set -e
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            "$DEPLOY_TAR" \
+            ${{ secrets.GCP_USER }}@${{ secrets.GCP_IP }}:/tmp/backend-deploy.tar.gz
+        shell: bash
+
+      - name: Rebuild shared + extract + install + build on remote
+        run: |
+          set -e
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            ${{ secrets.GCP_USER }}@${{ secrets.GCP_IP }} << 'REMOTE_SCRIPT'
+          set -e
+
+          echo "== 1) Rebuild de @matura/shared (dependance file:../shared) =="
+          cd /var/www/matura/shared
+          npm install
+          npm run build
+
+          echo "== 2) Nettoyage du dossier cible backend =="
+          cd /var/www/matura/maturproj-backend
+          rm -rf .git .git_disabled .github .gitignore diff.txt repomix-output.xml
+
+          echo "== 3) Extraction du nouveau code =="
+          tar -xzf /tmp/backend-deploy.tar.gz
+          rm -f /tmp/backend-deploy.tar.gz
+
+          echo "== 4) Verification du .env (jamais auto-genere) =="
+          if [ ! -f .env ]; then
+            echo "ERREUR: .env absent dans /var/www/matura/maturproj-backend"
+            echo "Cree-le manuellement une seule fois sur le serveur avant de redeployer."
+            exit 1
+          fi
+
+          echo "== 5) pnpm disponible ? =="
+          command -v pnpm >/dev/null 2>&1 || npm install -g pnpm
+
+          echo "== 6) Install + prisma generate + build =="
+          pnpm install
+          pnpm exec prisma generate
+          pnpm run build
+
+          echo "== 7) Redemarrage PM2 =="
+          pm2 restart backend --update-env || pm2 start dist/main.js --name backend --update-env
+          pm2 save
+
+          echo "Deploy backend termine"
+          REMOTE_SCRIPT
+        shell: bash
+
+      - name: Healthcheck (optionnel, non bloquant)
+        if: always()
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.GCP_IP }}
+          username: ${{ secrets.GCP_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sleep 3
+            curl -sf http://localhost:3000/api/health || echo "Healthcheck indisponible (endpoint /api/health pas encore implemente ?)"
+            pm2 status backend

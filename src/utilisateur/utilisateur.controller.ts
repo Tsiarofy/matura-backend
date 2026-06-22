@@ -13,7 +13,7 @@ export class UtilisateurController {
   @Get('moi')
   getMonProfil(@Request() req: { user:{ payload:{ id: string } }}) {
     // console.log("RECUPERATION DES IP - - - - - - - - - -- - - --")
-    // console.log(req.user)
+    // console.log(req.user)  
     return this.utilisateurService.getProfilComplet(req.user.payload.id);
   }
 

@@ -3,6 +3,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "target": "ES2023",
+    "rootDir":"./src",
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {

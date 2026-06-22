@@ -146,7 +146,7 @@ export class StadesService {
       where: { projet_id: projetId, stade_type: NUM_TO_TYPE[numStade] },
     })
     if(numStade===1){
-      console.log("- - - data stade3- - - - -")
+      console.log("- - - data stade1- - - - -")
       console.log(donnees)
     }
 
@@ -156,6 +156,7 @@ export class StadesService {
       type: stade.type,
       numero: numStade,
       statut: stade.statut,
+      missions_completees: stade.missions_completees,
       donnees,
       metriques,
       version: stade.version,
@@ -200,6 +201,13 @@ export class StadesService {
     if (!statuts_modifiables.includes(stade.statut)) {
       // console.log("ARRIVER DANS LE SERVICES2")
       throw new BadRequestException(`STADE_NON_MODIFIABLE: statut=${stade.statut}`)
+    }
+
+    const missionCount = await this.prisma.missionStade.count({
+      where: { stade_id: stade.id },
+    })
+    if (missionCount > 0 && !stade.missions_completees) {
+      throw new ForbiddenException('MISSIONS_NON_COMPLETEES')
     }
 
     // Extraction des calculs informatifs
@@ -363,6 +371,17 @@ export class StadesService {
         where: { id: projetId },
         data: { statut: StatutProjet.EN_EVALUATION },
       })
+      if (projet.mentor_id) {
+        await tx.notification.create({
+          data: {
+            utilisateur_id: projet.mentor_id,
+            type: 'STADE_SOUMIS',
+            titre: 'Nouveau stade à évaluer',
+            corps: `Le projet "${projet.titre}" — Stade ${numStade} attend votre évaluation.`,
+            lien_relatif: `/projets/${projetId}/stades/${numStade}`,
+          },
+        })
+      }
     })
 
     return {
@@ -481,6 +500,25 @@ export class StadesService {
         })
       }
 
+      // Notification à l'entrepreneur
+      const typeNotif = decision === 'VALIDE' ? 'STADE_VALIDE' : 'STADE_RENVOYE'
+      const titreNotif = decision === 'VALIDE'
+        ? `Stade ${numStade} validé !`
+        : `Stade ${numStade} : corrections demandées`
+      const corpsNotif = decision === 'VALIDE'
+        ? `Votre Stade ${numStade} a été validé. Vous pouvez passer au stade suivant.`
+        : `Votre mentor demande des corrections sur le Stade ${numStade}. Motif : ${dto.motif_renvoi || 'Non spécifié'}`
+
+      await tx.notification.create({
+        data: {
+          utilisateur_id: projet.proprietaire_id,
+          type: typeNotif,
+          titre: titreNotif,
+          corps: corpsNotif,
+          lien_relatif: `/projets/${projetId}/stades/${numStade}`,
+        },
+      })
+
       return eval_
     })
 
@@ -491,6 +529,10 @@ export class StadesService {
       statut_stade: decision === 'VALIDE' ? 'VALIDE' : 'EN_REVISION',
       brl_actuel: decision === 'VALIDE' ? numStade : projet.brl_actuel,
       message: `Évaluation enregistrée. L'entrepreneur a été notifié.`,
+      redirection_missions:
+        decision === 'VALIDE' && numStade < 7
+          ? { projetId, numStade: numStade + 1 }
+          : null,
     }
   }
 

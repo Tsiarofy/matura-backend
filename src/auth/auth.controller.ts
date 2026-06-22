@@ -22,12 +22,13 @@ export class AuthController {
     // console.log("Avant le requete dans la db")  
     const data=await this.authService.connexion(dto)  
     // console.log("Apres le requete dans la db")  
+    const secureCookie = process.env.COOKIE_SECURE === 'true';
     res.cookie('refresh_token', data.refreshToken, {
-    httpOnly: true,     // Interdit l'accès via JavaScript (Sécurité !)
-    secure: true,       // Nécessite HTTPS (en prod)
-    sameSite: 'strict', // Empêche l'envoi du cookie sur d'autres sites (Anti-CSRF)
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en millisecondes
-  });
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite: secureCookie ? 'strict' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
   return {
     token: data.token,
     utilisateur: data.utilisateur,
@@ -39,12 +40,13 @@ export class AuthController {
     async singup (@Body() dto:InscriptionDto, @Res({passthrough:true}) res:Response):Promise<AuthResponse> {
         const data=await this.authService.inscription(dto)
         
+    const secureCookie = process.env.COOKIE_SECURE === 'true';
     res.cookie('refresh_token', data.refreshToken, {
-    httpOnly: true,     // Interdit l'accès via JavaScript (Sécurité !)
-    secure: true,       // Nécessite HTTPS (en prod)
-    sameSite: 'strict', // Empêche l'envoi du cookie sur d'autres sites (Anti-CSRF)
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en millisecondes
-  });
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite: secureCookie ? 'strict' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
   return {
     token: data.token,
     utilisateur: data.utilisateur,
@@ -78,10 +80,11 @@ async logout(
   await this.authService.deconnexion(userId);
   
   // Supprimer le cookie côté client
+  const secureCookie = process.env.COOKIE_SECURE === 'true';
   res.clearCookie('refresh_token', {
     httpOnly: true,
-    secure: true,
-    sameSite: 'strict',
+    secure: secureCookie,
+    sameSite: secureCookie ? 'strict' : 'lax',
   });
 
   return { message: 'Déconnexion réussie' };

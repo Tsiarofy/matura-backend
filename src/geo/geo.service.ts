@@ -162,11 +162,11 @@ export class GeoService {
       },
     })
     // console.log("APRES LA REQUETE")
-    console.log({
-      population_2018: agg._sum.population_2018,
-      projection_actuelle: agg._sum.projection_2026, // colonne DB : projection_2026
-      nb_fokontany: agg._count.code_fokontany,
-    })
+    // console.log({
+    //   population_2018: agg._sum.population_2018,
+    //   projection_actuelle: agg._sum.projection_2026, // colonne DB : projection_2026
+    //   nb_fokontany: agg._count.code_fokontany,
+    // })
     return {
       population_2018: agg._sum.population_2018 ?? 0,
       projection_actuelle: agg._sum.projection_2026 ?? 0, // colonne DB : projection_2026

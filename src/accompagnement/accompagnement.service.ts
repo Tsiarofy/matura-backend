@@ -174,6 +174,7 @@ export class AccompagnementService {
         id: demandeId,
         statut: 'ACCEPTE',
         message: `Vous suivez maintenant le projet "${demande.projet.titre}".`,
+        redirection_missions: { projetId: demande.projet_id, numStade: 1 },
       }
     } else {
       await this.prisma.demandeAccompagnement.update({
@@ -206,7 +207,14 @@ export class AccompagnementService {
 
     const [mentors, total] = await Promise.all([
       this.prisma.utilisateur.findMany({
-        where: { role: 'MENTOR', statut_compte: 'APPROUVE' },
+        where: {
+          role: 'MENTOR',
+          statut_compte: 'APPROUVE',
+          profil: {
+            path: ['disponible'],
+            equals: true,
+          },
+        },
         select: {
           id: true,
           prenom: true,
@@ -214,12 +222,19 @@ export class AccompagnementService {
           url_avatar: true,
           profil: true,
         },
+        orderBy: { nom: 'asc' },
         skip,
         take: limite,
-        orderBy: { nom: 'asc' },
       }),
       this.prisma.utilisateur.count({
-        where: { role: 'MENTOR', statut_compte: 'APPROUVE' },
+        where: {
+          role: 'MENTOR',
+          statut_compte: 'APPROUVE',
+          profil: {
+            path: ['disponible'],
+            equals: true,
+          },
+        },
       }),
     ])
 
