@@ -43,7 +43,8 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api'); // Ajoute un préfixe global pour toutes les routes (ex: /api)
-  await app.listen(3000);
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
 }
 bootstrap();
 
