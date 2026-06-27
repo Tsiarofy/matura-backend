@@ -233,6 +233,13 @@ export class FormationsService {
   ) {
     await this.verifierOwnership(formationId, userId, userRole)
 
+    if (dto.ordre !== undefined) {
+      await this.prisma.lesson.updateMany({
+        where: { formation_id: formationId, ordre: { gte: dto.ordre } },
+        data: { ordre: { increment: 1 } }
+      })
+    }
+
     return this.prisma.lesson.create({
       data: {
         formation_id: formationId,
@@ -258,6 +265,20 @@ export class FormationsService {
     const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId } })
     if (!lesson || lesson.formation_id !== formationId) {
       throw new NotFoundException('LECON_INTROUVABLE')
+    }
+
+    if (dto.ordre !== undefined && dto.ordre !== lesson.ordre) {
+      if (dto.ordre > lesson.ordre) {
+        await this.prisma.lesson.updateMany({
+          where: { formation_id: formationId, ordre: { gt: lesson.ordre, lte: dto.ordre } },
+          data: { ordre: { decrement: 1 } }
+        })
+      } else {
+        await this.prisma.lesson.updateMany({
+          where: { formation_id: formationId, ordre: { gte: dto.ordre, lt: lesson.ordre } },
+          data: { ordre: { increment: 1 } }
+        })
+      }
     }
 
     return this.prisma.lesson.update({
