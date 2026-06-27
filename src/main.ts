@@ -37,10 +37,13 @@ async function bootstrap() {
 
   app.use(cookieParser()); // Middleware pour parser les cookies
 
-  // Serve static files from the 'uploads' folder
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
+  // En production, Nginx sert /uploads/ directement (bypass Node.js).
+  // En développement local, Express continue de servir les fichiers statiques.
+  if (process.env.NODE_ENV !== 'production') {
+    app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+      prefix: '/uploads/',
+    });
+  }
 
   app.setGlobalPrefix('api'); // Ajoute un préfixe global pour toutes les routes (ex: /api)
   const port = process.env.PORT || 3001;

@@ -46,7 +46,7 @@ export class ReunionsService {
 
   // ── Cron : Expiration automatique (toutes les 15 minutes) ─────────
 
-  @Cron('*/1 * * * *', { name: 'expirer-reunions' })
+  @Cron('*/5 * * * *', { name: 'expirer-reunions' })
   async expirerReunions() {
     const maintenant = new Date()
     const quinzeMinutesMs = 15 * 60 * 1000

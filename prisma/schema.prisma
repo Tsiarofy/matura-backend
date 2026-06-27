@@ -695,6 +695,7 @@ model Notification {
   utilisateur Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
 
   @@index([utilisateur_id, lue])
+  @@index([utilisateur_id, cree_le]) // Optimise ORDER BY cree_le DESC dans getMiennes()
   @@map("notifications")
 }
 
@@ -728,5 +729,6 @@ model ReunionSession {
   @@index([initiateur_id])
   @@index([participant_id])
   @@index([projet_id])
+  @@index([statut])              // Optimise le filtre du cron expirerReunions (WHERE statut IN [...])
   @@map("reunion_sessions")
 }
