@@ -33,6 +33,7 @@ export class AuthService {
           nom: dto.nom,
           prenom: dto.prenom,
           role: dto.role || RoleUtilisateur.ENTREPRENEUR,
+          
         }
       });
 

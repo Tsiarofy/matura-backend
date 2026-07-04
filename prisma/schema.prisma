@@ -4,23 +4,23 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // url      = env("DATABASE_URL")
 }
 
 // ─── ENUMS ──────────────────────────────────────────────────────
 
 enum TypeReunion {
-  SUIVI       // Entrepreneur ↔ Mentor
-  ENTRETIEN   // Entrepreneur ↔ Investisseur
+  SUIVI // Entrepreneur ↔ Mentor
+  ENTRETIEN // Entrepreneur ↔ Investisseur
 }
 
 enum StatutReunion {
-  EN_ATTENTE  // Demande envoyée, en attente de confirmation
-  CONFIRME    // Confirmée — token LiveKit généré
-  REFUSE      // Refusée par le participant
-  EN_COURS    // Session active
-  TERMINEE    // Session terminée normalement
-  EXPIREE     // Délai dépassé (cron job)
+  EN_ATTENTE // Demande envoyée, en attente de confirmation
+  CONFIRME // Confirmée — token LiveKit généré
+  REFUSE // Refusée par le participant
+  EN_COURS // Session active
+  TERMINEE // Session terminée normalement
+  EXPIREE // Délai dépassé (cron job)
 }
 
 enum Discipline {
@@ -371,15 +371,15 @@ model MembreEquipe {
 // ─── MISSIONS STADE ─────────────────────────────────────────────
 
 model MissionStade {
-  id              String    @id @default(cuid())
-  stade_id        String
-  mentor_id       String
-  ordre           Int
-  titre           String
-  objectif        String
-  date_limite     DateTime?
-  cree_le         DateTime  @default(now())
-  maj_le          DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  stade_id    String
+  mentor_id   String
+  ordre       Int
+  titre       String
+  objectif    String
+  date_limite DateTime?
+  cree_le     DateTime  @default(now())
+  maj_le      DateTime  @updatedAt
 
   stade           Stade                  @relation(fields: [stade_id], references: [id], onDelete: Cascade)
   mentor          Utilisateur            @relation("MentorMissions", fields: [mentor_id], references: [id])
@@ -392,13 +392,13 @@ model MissionStade {
 
 /// Un fichier requis défini par le mentor pour une mission donnée.
 model FichierRequisMission {
-  id          String       @id @default(cuid())
+  id          String @id @default(cuid())
   mission_id  String
-  type        String       // PDF | EXCEL | IMAGE | VIDEO
-  description String       // ex: "Excel listant les KPIs du trimestre"
-  ordre       Int          @default(0)
+  type        String // PDF | EXCEL | IMAGE | VIDEO
+  description String // ex: "Excel listant les KPIs du trimestre"
+  ordre       Int    @default(0)
 
-  mission    MissionStade        @relation(fields: [mission_id], references: [id], onDelete: Cascade)
+  mission     MissionStade        @relation(fields: [mission_id], references: [id], onDelete: Cascade)
   soumissions FichierSoumission[]
 
   @@index([mission_id])
@@ -417,8 +417,8 @@ model MissionSoumission {
   cree_le         DateTime  @default(now())
   maj_le          DateTime  @updatedAt
 
-  mission      MissionStade       @relation(fields: [mission_id], references: [id], onDelete: Cascade)
-  entrepreneur Utilisateur        @relation("EntrepreneurSoumissions", fields: [entrepreneur_id], references: [id])
+  mission      MissionStade        @relation(fields: [mission_id], references: [id], onDelete: Cascade)
+  entrepreneur Utilisateur         @relation("EntrepreneurSoumissions", fields: [entrepreneur_id], references: [id])
   fichiers     FichierSoumission[]
 
   @@unique([mission_id, entrepreneur_id])
@@ -436,7 +436,7 @@ model FichierSoumission {
   fichier_taille_octets Int?
   cree_le               DateTime @default(now())
 
-  soumission    MissionSoumission    @relation(fields: [soumission_id], references: [id], onDelete: Cascade)
+  soumission     MissionSoumission     @relation(fields: [soumission_id], references: [id], onDelete: Cascade)
   fichier_requis FichierRequisMission? @relation(fields: [fichier_requis_id], references: [id])
 
   // L'unicité est toujours appliquée si fichier_requis_id est présent (Postgres autorise plusieurs NULL dans un @@unique)
@@ -564,7 +564,7 @@ model Stade {
   valide_le           DateTime?
   maj_le              DateTime    @updatedAt
 
-  projet      Projet       @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  projet      Projet         @relation(fields: [projet_id], references: [id], onDelete: Cascade)
   evaluations Evaluation[]
   documents   Document[]
   missions    MissionStade[]
@@ -597,7 +597,7 @@ model Utilisateur {
   prenom        String
   nom           String
   role          RoleUtilisateur
-  statut_compte StatutCompte    @default(APPROUVE)
+  statut_compte StatutCompte    @default(EN_ATTENTE)
   // ENTREPRENEUR → APPROUVE automatiquement
   // MENTOR/INVESTISSEUR → EN_ATTENTE jusqu'à approbation admin
   profil        Json?
@@ -618,7 +618,7 @@ model Utilisateur {
   formations_creees       Formation[]             @relation("FormationsCreees")
   missions_creees         MissionStade[]          @relation("MentorMissions")
   soumissions_missions    MissionSoumission[]     @relation("EntrepreneurSoumissions")
-  notifications           Notification[]          // NOUVEAU
+  notifications           Notification[] // NOUVEAU
   reunions_initiees       ReunionSession[]        @relation("ReunionsInitiees")
   reunions_recues         ReunionSession[]        @relation("ReunionsRecues")
 
@@ -683,14 +683,14 @@ enum TypeNotification {
 }
 
 model Notification {
-  id              String           @id @default(cuid())
-  utilisateur_id  String
-  type            TypeNotification
-  titre           String
-  corps           String
-  lien_relatif    String?          // ex: "/projets/abc123/stades/2"
-  lue             Boolean          @default(false)
-  cree_le         DateTime         @default(now())
+  id             String           @id @default(cuid())
+  utilisateur_id String
+  type           TypeNotification
+  titre          String
+  corps          String
+  lien_relatif   String? // ex: "/projets/abc123/stades/2"
+  lue            Boolean          @default(false)
+  cree_le        DateTime         @default(now())
 
   utilisateur Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade)
 
@@ -702,33 +702,33 @@ model Notification {
 // ─── RÉUNION SESSION ────────────────────────────────────────────
 
 model ReunionSession {
-  id             String        @id @default(cuid())
-  type           TypeReunion
-  statut         StatutReunion @default(EN_ATTENTE)
+  id     String        @id @default(cuid())
+  type   TypeReunion
+  statut StatutReunion @default(EN_ATTENTE)
 
   initiateur_id  String
   participant_id String
   projet_id      String
 
-  date_planifiee DateTime?     // null = appel instantané
-  livekit_room   String?       // nom unique de la room LiveKit
-  livekit_token  String?       // token JWT (pour appels instantanés)
+  date_planifiee DateTime? // null = appel instantané
+  livekit_room   String? // nom unique de la room LiveKit
+  livekit_token  String? // token JWT (pour appels instantanés)
 
-  cree_le           DateTime      @default(now())
-  expire_le         DateTime?     // date_planifiee + durée_session (ex: +2h)
-  maj_le            DateTime      @updatedAt
-  initiateur_joint  Boolean       @default(false)
-  participant_joint Boolean       @default(false)
+  cree_le           DateTime  @default(now())
+  expire_le         DateTime? // date_planifiee + durée_session (ex: +2h)
+  maj_le            DateTime  @updatedAt
+  initiateur_joint  Boolean   @default(false)
+  participant_joint Boolean   @default(false)
   vide_depuis       DateTime?
 
   // Relations
-  initiateur  Utilisateur @relation("ReunionsInitiees",  fields: [initiateur_id],  references: [id])
-  participant Utilisateur @relation("ReunionsRecues",    fields: [participant_id], references: [id])
+  initiateur  Utilisateur @relation("ReunionsInitiees", fields: [initiateur_id], references: [id])
+  participant Utilisateur @relation("ReunionsRecues", fields: [participant_id], references: [id])
   projet      Projet      @relation(fields: [projet_id], references: [id], onDelete: Cascade)
 
   @@index([initiateur_id])
   @@index([participant_id])
   @@index([projet_id])
-  @@index([statut])              // Optimise le filtre du cron expirerReunions (WHERE statut IN [...])
+  @@index([statut]) // Optimise le filtre du cron expirerReunions (WHERE statut IN [...])
   @@map("reunion_sessions")
 }

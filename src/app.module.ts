@@ -15,6 +15,7 @@ import { MissionsModule } from './missions/missions.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReunionsModule } from './reunions/reunions.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   controllers: [AppController],
@@ -34,6 +35,7 @@ import { ReunionsModule } from './reunions/reunions.module';
     ScheduleModule.forRoot(),
     NotificationsModule,
     ReunionsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
